@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 콘텐츠는 엔진 리포와 나눠 별도 비공개 리포에 둔다
 
