@@ -3,6 +3,8 @@ status: accepted
 ---
 # 미션 콘텐츠는 데이터 파일이 아니라 Python 모듈로 쓴다
 
+> 2026-11-09 변경: 콘텐츠의 위치는 ADR-0009(별도 비공개 리포)를 따른다. 아래 본문은 결정 당시 기록이다.
+
 체크는 함수다. 미션마다 파일이 있는지, API가 어떤 상태 코드를 돌려주는지, JSON의 어느 값이 맞는지를 조합해 판정해야 한다. S1도 미션을 Python 파일(`missions_sql.py`, `missions_py.py`)에 정의했다. 그래서 미션은 `content/chNN_*.py`에 미션 스키마(design.md 8.3절의 `Mission` dataclass)로 쓰고, 체크는 체크 프리미티브를 조합한 함수로 둔다.
 
 ## Considered Options
