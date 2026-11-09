@@ -45,7 +45,7 @@
 - 확인하지 못한 것은 "확인하지 못했다"고 쓴다.
 
 ## 6. 프로젝트: Product Forge With AI
-- 기준 문서는 `docs/design.md`(v0.3.4)다. 1절 표의 "문제 정의"와 PRD 성격을 함께 가진다. 문서는 1절 표 순서대로 쓰고(문제 정의·GLOSSARY·ADR → IA → User Journey → PRD → ERD → Spec → Plan → Intent), `Intent.md`는 루트에 둔다.
+- 기준 문서: 요구사항과 게이트는 `docs/PRD.md`, 배경·커리큘럼·비용은 `docs/design.md`(v0.3.5)다. design.md는 1절 표의 "문제 정의"에 해당한다. 문서는 1절 표 순서대로 쓰고(문제 정의·GLOSSARY·ADR → IA → User Journey → PRD → ERD → Spec → Plan → Intent), `Intent.md`는 루트에 둔다.
 - 스택: 게임 엔진은 Python 3.14 + uv + pytest(ADR-0002), 학습 상태는 SQLite(ADR-0003). 라이브러리 버전은 Plan에서 정한다. 학습자가 만드는 제품 OpsDesk는 별도 리포 `opsdesk`이고 이 리포에 넣지 않는다.
 - 역할과 분담 (2026-11-09 결정):
   - 사용자는 이 게임의 학습자이자 승인자다.
