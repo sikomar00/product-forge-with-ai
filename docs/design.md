@@ -1,9 +1,9 @@
 # 🔨 Product Forge With AI
-### AI와 함께 만드는 풀사이클 제품 개발 학습 게임 · 설계서 v0.3.3 · 2026-11-09
+### AI와 함께 만드는 풀사이클 제품 개발 학습 게임 · 설계서 v0.3.4 · 2026-11-09
 
 > 이 문서의 용도: (1) 학습자가 전체 그림을 보는 지도, (2) AI 코딩 도구에 넘겨 게임을 제작하는 명세.
 > 표기: ✅ 출처로 확인한 사실 · ⚠️ 출처 간 상충 또는 공식 문서 미확인 · 📐 추정치(실측으로 보정할 값)
-> 이력: v0.1~v0.2는 "SAILINGSTONE QUEST S2"(특정 회사 지원 목표)였고 `sikomar00/sailingstone-quest`의 `claude/season2-design` 브랜치에 남아 있다. v0.3에서 목표와 소재를 바꿨고, v0.3.1에서 무료 리소스 검토 결과(인증·도메인·스케줄러·첨부·메일)를, v0.3.2에서 5-14 코어 승격과 Supabase 조직 분리를, v0.3.3에서 용어 정리(GLOSSARY)를 반영했다(부록 A).
+> 이력: v0.1~v0.2는 "SAILINGSTONE QUEST S2"(특정 회사 지원 목표)였고 `sikomar00/sailingstone-quest`의 `claude/season2-design` 브랜치에 남아 있다. v0.3에서 목표와 소재를 바꿨고, v0.3.1에서 무료 리소스 검토 결과(인증·도메인·스케줄러·첨부·메일)를, v0.3.2에서 5-14 코어 승격과 Supabase 조직 분리를, v0.3.3에서 용어 정리(GLOSSARY)를, v0.3.4에서 IA 결정(콘텐츠 리포 분리 등)을 반영했다(부록 A).
 
 ---
 
@@ -960,16 +960,17 @@ brew "actionlint"; brew "gitleaks"; brew "pre-commit"
 
 | 리포 | 역할 |
 |---|---|
-| `product-forge-with-ai` | 게임 엔진, 콘텐츠(미션·체크·장애 시나리오), 랩 정의, 이 설계서 |
+| `product-forge-with-ai`(공개) | 게임 엔진, 랩 정의, 이 설계서와 하네스 문서 |
+| 콘텐츠 리포(비공개, 이름은 Plan에서) | 미션·체크·장애 시나리오·모범 답안·힌트(이 리포 ADR-0009) |
 | `opsdesk` | 학습자가 만드는 제품(2-2에서 생성, 공개) |
 | `tech-radar-agent` | 선택 연결 트랙. 게임은 읽기와 해설만 하고 쓰지 않는다 |
 
-엔진은 S1(`sailingstone-quest/quest/engine.py`)의 상태·XP·힌트·승급 시험·복습 로직을 가져와 패키지로 재구성한다. 설정 파일(`~/.config/quest/config.toml`)에서 제품 리포 경로, GitHub 소유자, 배포 URL, 랩 VM 호스트를 읽는다.
+엔진은 S1(`sailingstone-quest/quest/engine.py`)의 상태·XP·힌트·승급 시험·복습 로직을 가져와 패키지로 재구성한다. 설정 파일(`~/.config/quest/config.toml`)에서 제품 리포 경로, GitHub 소유자, 배포 URL, 랩 VM 호스트, 콘텐츠 경로를 읽는다.
 
 ### 8.2 디렉터리 구조
 
 ```
-product-forge-with-ai/
+product-forge-with-ai/       # 엔진 리포(공개)
 ├── pyproject.toml           # uv 관리, 실행 명령: quest
 ├── quest/
 │   ├── cli.py
@@ -979,12 +980,15 @@ product-forge-with-ai/
 │   │           db.py node.py e2e.py docker.py k8s.py terraform.py mail.py saas.py tools.py ai_eval.py
 │   ├── chaos/  # inject / snapshot / cleanup
 │   └── labs/   # Linux VM cloud-init, k3d 설정, 리뷰봇 워크플로, 합성 트래픽 시뮬레이터
+├── docs/                    # design.md, GLOSSARY.md, IA.md, adr/
+└── tests/
+    └── test_checks_*.py     # 체크 프리미티브 단위 테스트(가짜 미션 픽스처 사용)
+
+<콘텐츠 리포>/               # 비공개(ADR-0009), 이름은 Plan에서 정한다
 ├── content/
 │   ├── ch00_workshop.py … ch17_forge_run.py
 │   └── tool_maps/           # 🗺️ 도구 지도 카드
-├── docs/design.md
 └── tests/
-    ├── test_checks_*.py     # 체크 프리미티브 단위 테스트
     └── test_missions_*.py   # 미션별 "풀린 상태 / 안 풀린 상태" 픽스처
 ```
 
@@ -1050,7 +1054,7 @@ class Mission:
 
 - SQLite 테이블: `missions`, `attempts`(체크 결과 JSON), `incidents`(주입·복구 시각·MTTR·RCA), `cards`(상자·만기), `events`.
 - 힌트 3단계와 모범 답안은 난독화해서 저장한다. 보안 목적이 아니라 우연히 보는 것을 막는 용도다.
-- 콘텐츠(정답·체크·장애 시나리오)는 학습자가 읽지 않는 것을 원칙으로 한다.
+- 콘텐츠(정답·체크·장애 시나리오)는 학습자가 읽지 않는 것을 원칙으로 한다. 콘텐츠는 별도 비공개 리포에 둔다(이 리포 ADR-0009).
 
 ### 8.7 콘텐츠 완성 기준 (미션 하나당)
 
@@ -1161,7 +1165,7 @@ class Mission:
 
 ---
 
-## 부록 A. 결정 기록 (v0.1 → v0.3.3)
+## 부록 A. 결정 기록 (v0.1 → v0.3.4)
 
 ### A.1 v0.2 페르소나 리뷰에서 유지한 결정
 
@@ -1227,3 +1231,10 @@ class Mission:
 - **"선택"**: ⚖️는 "결정 미션"으로 바꿨다. "선택"은 ➕(필수 아님)만 뜻한다(사용자 결정). 미션 제목 안의 "선택"은 '고른다'는 일반 동사라 그대로 뒀다.
 - **"체커"**: "체크"로 통일했다.
 - 이전 기록(부록 A.2)의 표기도 새 용어로 바꿨다. 미션 수와 시간은 바뀌지 않았다.
+
+### A.8 IA 인터뷰 결정 (v0.3.4, 2026-11-09)
+
+- **조작 방식**: 명령형이고, 답이 필요한 순간에만 그 자리에서 묻는다(`docs/IA.md`).
+- **승급 시험**: 보스를 먼저 도전하는 것이 승급 시험이다(`quest exam`). 통과하면 남은 미션을 면제받고 면제된 미션마다 보상 50%를 받는다(S1 규칙).
+- **콘텐츠 위치**: 별도 비공개 리포로 옮겼다(이 리포 ADR-0009). 엔진 리포가 공개 리포라 같은 리포에 두면 정답이 공개되고, 엔진을 AI와 바이브코딩할 때 AI가 검색하다 정답을 띄울 수 있어서다.
+- 미션 수와 시간은 바뀌지 않았다.
