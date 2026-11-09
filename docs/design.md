@@ -1,9 +1,9 @@
 # 🔨 Product Forge With AI
-### AI와 함께 만드는 풀사이클 제품 개발 학습 게임 · 설계서 v0.3 · 2026-11-09
+### AI와 함께 만드는 풀사이클 제품 개발 학습 게임 · 설계서 v0.3.1 · 2026-11-09
 
 > 이 문서의 용도: (1) 학습자가 전체 그림을 보는 지도, (2) AI 코딩 도구에 넘겨 게임을 제작하는 명세.
 > 표기: ✅ 출처로 확인한 사실 · ⚠️ 출처 간 상충 또는 공식 문서 미확인 · 📐 추정치(실측으로 보정할 값)
-> 이력: v0.1~v0.2는 "SAILINGSTONE QUEST S2"(특정 회사 지원 목표)였고 `sikomar00/sailingstone-quest`의 `claude/season2-design` 브랜치에 남아 있다. v0.3에서 목표와 소재를 바꿨다(부록 A).
+> 이력: v0.1~v0.2는 "SAILINGSTONE QUEST S2"(특정 회사 지원 목표)였고 `sikomar00/sailingstone-quest`의 `claude/season2-design` 브랜치에 남아 있다. v0.3에서 목표와 소재를 바꿨고, v0.3.1에서 무료 리소스 검토 결과(인증·도메인·스케줄러·첨부·메일)를 반영했다(부록 A).
 
 ---
 
@@ -15,12 +15,12 @@
   - 마지막 개선 사이클: OpsDesk 안의 **피드백 모듈**
   - 선택 연결 트랙: 이미 진행 중인 **Tech Radar Agent**(6절)
 - **형식**: 터미널 게임. 실제 도구를 실제 환경에서 쓰고, 게임은 결과물과 시스템 상태를 검사해 채점한다. S1 게임 엔진(채점·힌트·복습·XP)을 가져와 확장한다.
-- **규모** 📐: 18장(0~17장), 미션 204개(코어 176 + ➕선택 28), 코어 약 234시간.
+- **규모** 📐: 18장(0~17장), 미션 207개(코어 176 + ➕선택 31), 코어 약 234시간.
 - **일정** 📐
   - 계획: 주 20시간 기준 작업 12주 + 버퍼 2주 = 14주. W1을 2026-11-16로 가정하면 2027-02-21에 끝난다.
   - 보수: S1 진행 속도(계획 대비 50~63%)를 적용하면 21~26주, 2027-04-11~05-16 종료.
   - 1·2장 실측 후 다시 계산한다.
-- **예산**: 월 1~3만 원 안. 무료 우선으로 평달 약 1천~2천 원(도메인 비용을 월로 나눈 값), 많이 드는 달 1~2만 원(7절).
+- **예산**: 월 1~3만 원 안. 무료 우선이라 평달 비용은 도메인 비용을 월로 나눈 값뿐이다. 첫해 월 약 300~600원, 2년차부터 월 약 1,200원이고(1달러 1,400원 가정 📐), 많이 드는 달은 1~2만 원이다(7절).
 - **최종 산출물**
   - OpsDesk 공개 리포와 라이브 URL(무료 PaaS, 자기 도메인)
   - 운영 대시보드와 제품 지표 대시보드
@@ -39,6 +39,7 @@
 | 목표 | 풀사이클 제품 개발 리터러시(특정 회사와 무관) | 사용자 결정(2026-11-09) |
 | 소재 | OpsDesk 메인 + 피드백 모듈, Tech Radar는 선택 | 사용자 결정. 후보 비교는 부록 A.3 |
 | 프론트엔드 | Next.js(React + TypeScript)를 리터러시 수준으로 | 사용자 결정 |
+| 인증 | Supabase Auth(GitHub 로그인) + FastAPI에서 JWT 검증 | 직접 만든 인증의 위험(OWASP A07)을 피하고, 무료 범위(월 활성 사용자 5만 명) 안이며 가입 메일이 필요 없다. DB와 같은 Supabase 프로젝트를 써서 프로젝트 수가 늘지 않는다(부록 A.5) |
 | 저장소 | 게임·설계: `product-forge-with-ai`, 제품: `opsdesk`(2장에서 생성) | 사용자 결정 |
 | 사용자 초대 | 불가 | 제품 분석은 도그푸딩 + 합성 트래픽(4.8절) |
 | 예산 | 월 1~3만 원, 무료 우선. 무료로 바꿀 때 크게 떨어지는 곳만 유료 | 7절 |
@@ -108,7 +109,7 @@
 | AI 협업 | AI 튜터 모드 설정. 스펙을 먼저 쓰고 AI에 맡긴 구현이 계약 테스트 통과. 위임 미션의 설명 게이트 통과 |
 | 기획 | PRD(범위·비범위·성공 지표), 수용 기준이 있는 유저 스토리, 백로그 |
 | 설계 | C4 다이어그램, ERD, 상태 전이 표, 권한 매트릭스, OpenAPI, ADR 5건 이상 |
-| 백엔드 | 역할별 접근 제어(다른 사람 티켓 접근 차단), 서버가 강제하는 상태 전이, 추가 전용 감사 로그 |
+| 백엔드 | 관리형 인증(Supabase Auth) 연동과 JWT 검증, 역할별 접근 제어(다른 사람 티켓 접근 차단), 서버가 강제하는 상태 전이, 추가 전용 감사 로그 |
 | 비동기 | SLA 위반 감지와 알림이 재시도·중복 방지와 함께 동작 |
 | 프론트엔드 | 요청자·담당자·관리자 3가지 흐름이 화면에서 끝까지 동작, 접근성 기본 점검 통과 |
 | 테스트 | 권한 매트릭스 테스트, E2E 1개 이상, 변이 테스트 점수 기록 |
@@ -248,7 +249,7 @@ AI에게 시킬 때: "non-root, 멀티스테이지, .dockerignore 포함"을 조
 ```
 $ quest
   🔨 PRODUCT FORGE WITH AI     주니어 · 2,140 XP · 📅 복습 6일 연속
-  📈 5장 백엔드 ▓▓▓▓▓▓░░░░░░░░░ 8/16      오늘 복습 카드 11장 (quest review)
+  📈 5장 백엔드 ▓▓▓▓▓▓░░░░░░░░░ 8/17      오늘 복습 카드 11장 (quest review)
   ▶ 현재 티켓 5-8 인가: 요청자는 자기 티켓만   🤝 pair · 예상 60분
 
 $ quest check
@@ -281,12 +282,13 @@ $ quest check
   - 역할 3개: 요청자, 담당자, 관리자
   - 상태 6개: 접수 → 분류 → 배정 → 처리 중 → 해결 → 종결, 재오픈 가능
   - 우선순위별 SLA 2종: 첫 응답 시간, 해결 시간
+  - 인증: Supabase Auth(GitHub 로그인). 앱 역할(요청자·담당자·관리자)은 OpsDesk DB에서 관리
   - 알림: 앱 내 알림 + Slack 웹훅. 메일은 개발 단계에서 Mailpit
   - 감사 로그: 추가만 가능, 수정·삭제 불가
   - 운영 대시보드 KPI 3개: 미처리 건수, SLA 위반율, 평균 해결 시간
   - AI 기능 3개: 자동 분류, 긴 대화 요약, 유사 티켓 검색
   - 피드백 모듈: 마지막 개선 사이클용(4.9절)
-- **선택 미션으로 미룸**: 운영 메일 발송, 이메일 수신 파싱, 영업시간 달력, 멀티테넌트, 매크로, 만족도 조사, 첨부 파일
+- **선택 미션으로 미룸**: 운영 메일 발송(6-8), 첨부 이미지(7-12), 이메일 수신 파싱, 영업시간 달력, 멀티테넌트, 매크로, 만족도 조사
 
 ### 4.3 도메인 지식 (IT 서비스 관리 기본)
 
@@ -299,7 +301,7 @@ $ quest check
 
 | 테이블 | 주요 컬럼 | 비고 |
 |---|---|---|
-| users | id, email, name, role, password_hash | 역할은 requester·agent·admin |
+| users | id(= Supabase Auth 사용자 ID), email, name, role | 로그인은 Supabase Auth가 맡고, 역할(requester·agent·admin)은 여기서 관리 |
 | tickets | id, requester_id, assignee_id, type, category, priority, status, title, created_at | 상태는 서버가 전이 규칙으로만 바꾼다 |
 | ticket_events | id, ticket_id, actor_id, kind, from_status, to_status, payload, created_at | 추가 전용(감사 로그) |
 | comments | id, ticket_id, author_id, body, internal, created_at | internal = 담당자끼리만 보는 메모 |
@@ -308,6 +310,7 @@ $ quest check
 | notifications | id, user_id, ticket_id, channel, status, attempts, dedupe_key | dedupe_key로 중복 발송 방지 |
 | ai_suggestions | id, ticket_id, kind, value, confidence, model, accepted, corrected_value | 사람 수정률 계산용 |
 | ticket_embeddings | ticket_id, embedding | 15장 유사 검색(pgvector) |
+| attachments(➕) | id, ticket_id, object_path, size_bytes, content_type | 7-12. URL이 아니라 비공개 버킷 안의 경로만 저장 |
 | feedback_items·votes·roadmap_items·changelog | — | 16·17장 피드백 모듈 |
 
 ### 4.5 상태 전이
@@ -368,7 +371,9 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
   U["브라우저"] --> V["Vercel Hobby<br/>Next.js"]
+  V --> A["Supabase Auth<br/>GitHub 로그인"]
   V --> R["Render Free<br/>FastAPI"]
+  R -.->|"JWT 검증"| A
   R --> S["Supabase Free<br/>Postgres + pgvector"]
   G["GitHub Actions 예약 실행"] -->|"30~60분마다"| R
   R --> SL["Slack 웹훅"]
@@ -381,6 +386,9 @@ flowchart LR
 - Render 무료 웹 서비스는 15분간 요청이 없으면 슬립하고, 백그라운드 워커·크론에는 무료 인스턴스가 없다 ✅. 그래서 SLA 점검은 GitHub Actions 예약 실행이 보호된 엔드포인트를 호출하는 방식으로 한다(6-5에서 다른 방식과 비교).
 - 호출 간격 📐: 5분마다 깨우면 서비스가 사실상 잠들지 않아 월 750 무료 시간을 거의 다 쓴다. 30분 간격이면 월 약 370시간, 60분 간격이면 월 약 190시간이다. 감지 지연과 무료 시간 사이의 트레이드오프다.
 - 깨어나는 데 최대 약 1분이 걸린다 ✅. 예약 호출은 넉넉한 시간 제한과 재시도를 둔다.
+- Vercel Cron은 Hobby에서 하루 1회만 돌아서 SLA 점검에 쓸 수 없다 ✅. Cron Jobs를 대체하는 Vercel Schedules는 Hobby에서 최소 15분 간격이라는 검색 요약이 있다 ⚠️(공식 문서 원문 미확인). 6-5에서 GitHub Actions 예약 실행·Supabase Cron과 비교한다.
+- 사람 사용자의 로그인은 Supabase Auth의 GitHub 로그인만 쓴다. 가입 확인 메일이 필요 없어서 기본 메일 제약(프로젝트 팀원 주소에만, 시간당 2통)을 피한다 ✅.
+- 역할별 테스트 계정(채점·E2E용 3개)과 16-4의 가상 직원 계정은 메일을 보내지 않고 대시보드나 관리 API로 만든 뒤 비밀번호 로그인으로 토큰을 받는다. 정확한 설정은 구현 시 확인한다 ⚠️(12절).
 
 ---
 
@@ -405,7 +413,7 @@ flowchart LR
 | 2 Git·GitHub | W1~2 | 변경을 어떻게 안전하게 쌓고 합치나 | Git, GitHub(PR·ruleset·Projects), gh | `opsdesk` 리포 | 11h |
 | 3 기획 | W2 | 무엇을, 누구를 위해, 어디까지 만드나 | PRD, 유저 스토리, GitHub Projects | PRD·백로그 | 8h |
 | 4 설계 | W2~3 | 어떤 구조로 만드나 | Mermaid, ERD, OpenAPI, Figma(AI UI 생성) | 다이어그램·ERD·권한 매트릭스·ADR | 12h |
-| 5 백엔드 | W3~4 | 데이터와 규칙은 어디서 처리하나 | FastAPI, Pydantic, PostgreSQL, SQLAlchemy·Alembic, Postman(Bruno) | API v0.1 | 27h |
+| 5 백엔드 | W3~4 | 데이터와 규칙은 어디서 처리하나 | FastAPI, Pydantic, PostgreSQL, SQLAlchemy·Alembic, Supabase Auth, Postman(Bruno) | API v0.1 | 27h |
 | 6 비동기·외부 연동 | W4~5 | 시간 기반 작업과 알림은 어떻게 돌리나 | GitHub Actions 예약, Supabase Cron, Mailpit, 웹훅 | SLA·알림 파이프라인 | 8h |
 | 7 프론트엔드 | W5~6 | 사용자는 무엇을 보고 누르나 | Next.js, React, TypeScript, Tailwind·shadcn/ui | 웹 v0.1 | 19h |
 | 8 테스트·품질 | W6 | 동작을 어떻게 증명하나 | pytest, Playwright, Newman, ruff·tsc, mutmut | 품질 게이트 | 14h |
@@ -540,7 +548,7 @@ flowchart LR
   - 4-5 🎫 권한 매트릭스(역할 × 행동)
   - 4-6 🎫 OpenAPI 초안
   - 4-7 🎫 와이어프레임 3화면
-  - 4-8 ⚖️ 기술 스택 ADR(왜 FastAPI + Next.js + Postgres인가)
+  - 4-8 ⚖️ 기술 스택 ADR(왜 FastAPI + Next.js + Postgres인가. 문서형 DB인 Firestore와 비교: 조인·트랜잭션·감사 로그, 하루 읽기 5만 건 같은 사용량 한도)
   - 4-9 🧠 위협 모델링 입문(누가 무엇을 노리나)
   - 4-B 🏁 설계 리뷰(ADR 3건 + 다이어그램 + 매트릭스)
   - 4-TR ➕🔍 Tech Radar ADR-0006 해설: Next.js를 기각한 이유와 OpsDesk가 채택한 이유
@@ -553,16 +561,17 @@ flowchart LR
   - HTTP: 메서드, 상태 코드, 헤더. REST
   - FastAPI: Pydantic 검증과 422, 의존성 주입
   - DB: PostgreSQL, SQLAlchemy 2.0, Alembic, 트랜잭션
-  - 인증·인가: 세션과 토큰, 비밀번호 해시, 역할 기반 권한, 객체 단위 권한
+  - 인증·인가: 세션과 토큰(JWT), 비밀번호 해시, OAuth 로그인 흐름, 관리형 인증, 토큰 만료와 폐기의 한계, 역할 기반 권한, 객체 단위 권한
   - 규칙: 상태 전이 강제, 감사 로그, 설정(12-factor), 구조화 로그
 - **🗺️ 도구 지도**
   - FastAPI: 경로 함수, Pydantic 모델, Depends, 자동 OpenAPI, 예외 처리
   - PostgreSQL: 제약조건, 인덱스, 트랜잭션, JSONB
   - Alembic: 리비전, upgrade/downgrade, 자동 생성의 한계
   - Postman(대안 Bruno): 컬렉션, 환경 변수, 테스트 스크립트
+  - Supabase Auth: GitHub 등 소셜 로그인(OAuth), JWT 발급(기본 만료 1시간), 서버에서 JWT 검증. 로그아웃해도 이미 발급된 토큰은 만료 전까지 유효하다 ✅
 - **보안**: A01(남의 객체 접근, IDOR), 인젝션, 인증 실패
 - **AI 포인트**: 엔드포인트 4~5개(5-6~5-9)를 손으로 만든 뒤 5-13에서 스펙 기반 위임을 처음 해 본다.
-- **DB 준비**: 5장은 Homebrew Postgres 또는 Postgres.app을 쓴다. Docker는 9장에서 배운다.
+- **DB 준비**: 5장은 Homebrew Postgres 또는 Postgres.app을 쓴다. Docker는 9장에서 배운다. 인증만 5-7에서 만드는 Supabase 프로젝트(무료)를 먼저 쓰고, DB는 10-3에서 같은 프로젝트로 옮긴다.
 - **미션**
   - 5-1 🔮 HTTP 요청 해부(`curl -v`, 0.0.0.0과 127.0.0.1)
   - 5-2 🧠 메서드·상태 코드의 의미
@@ -570,13 +579,14 @@ flowchart LR
   - 5-4 🎫 PostgreSQL 연결 + SQLAlchemy 모델
   - 5-5 🎫 Alembic 마이그레이션
   - 5-6 🎫 티켓 CRUD + Pydantic 검증(422)
-  - 5-7 🎫 인증: 로그인, 비밀번호 해시, 세션 또는 토큰
-  - 5-8 🎫 인가: 요청자는 자기 티켓만(객체 단위 권한) (중간 점검)
+  - 5-7 🎫 인증: 원리(세션·JWT·비밀번호 해시) 이해 + Supabase Auth 연동. Supabase 프로젝트 생성, GitHub 로그인, FastAPI에서 JWT 검증(서명·만료·대상), 앱 역할 매핑, 역할별 테스트 계정 3개(4.10절). GitHub OAuth 앱의 client secret은 Supabase 대시보드에만 넣는다
+  - 5-8 🎫 인가: 요청자는 자기 티켓만(객체 단위 권한). 로그아웃 뒤에도 만료 전까지 유효한 토큰까지 고려 (중간 점검)
   - 5-9 🎫 상태 전이를 서버가 강제(허용 안 된 전이는 409)
   - 5-10 🎫 감사 로그(추가 전용 `ticket_events`)
   - 5-11 🎫 Postman 컬렉션·환경 변수로 수동 검증
   - 5-12 🎫 SQL 인젝션·대량 할당 방어 확인
   - 5-13 🎫🚀 스펙 먼저: OpenAPI 스펙 → AI 구현 → 계약 검증
+  - 5-14 ➕⚖️ 인증 방식 비교: 직접 구현 vs 관리형 인증(Supabase Auth). 보안(A07)·비용·서비스 종속·교체 비용
   - 5-I1 🚨 다른 사람 티켓이 보인다(IDOR)
   - 5-B 🏁 OpsDesk API v0.1
   - 5-TR ➕🔍 Tech Radar DB 계층 해설: ORM 없이 SQL을 쓴 이유, "정책 없는 RLS"의 의미
@@ -589,15 +599,18 @@ flowchart LR
   - GitHub Actions 예약 실행: cron 문법, 최소 5분 간격, 부하가 크면 지연 가능, 공개 리포 무료
   - Supabase Cron(pg_cron): DB 안에서 주기 실행. 무료 프로젝트는 7일 비활성 시 일시정지
   - 앱 내 스케줄러: 단순하지만 무료 웹 서비스가 슬립하면 함께 멈춤
+  - Vercel Cron·Schedules: Cron은 Hobby에서 하루 1회라 SLA 점검에 부적합 ✅. Schedules는 Hobby에서 최소 15분 간격, 실행 시각에 최대 15분 오차라는 검색 요약 ⚠️
   - Mailpit: 개발용 메일 수신함과 API(메일이 실제로 나갔는지 검사)
+  - 커스텀 SMTP(➕): Supabase 기본 메일은 프로젝트 팀원 주소에만 시간당 2통이다. 2026-06-03 이후 만든 무료 프로젝트는 기본 메일을 쓰는 동안 메일 템플릿도 고칠 수 없다 ✅. 운영 메일에는 커스텀 SMTP가 필요하다
 - **미션**
   - 6-1 🧠 크론·큐·워커 차이
   - 6-2 🎫 알림 메일(개발: Mailpit)
   - 6-3 🎫 재시도·멱등성(같은 알림 두 번 안 보내기)
   - 6-4 🎫 SLA 위반 감지 작업
-  - 6-5 ⚖️ 무료 환경 스케줄러 선택(감지 지연, 무료 시간 소모, DB 일시정지 비교)
+  - 6-5 ⚖️ 무료 환경 스케줄러 선택(GitHub Actions 예약·Supabase Cron·Vercel Schedules·앱 내 스케줄러: 감지 지연, 무료 시간 소모, DB 일시정지 비교)
   - 6-6 🎫 웹훅 수신: GitHub Issue → 티켓(서명 검증)
   - 6-7 ➕🎫 Slack 웹훅 알림
+  - 6-8 ➕🎫 운영 메일: Gmail SMTP(앱 비밀번호)를 Supabase 커스텀 SMTP로 연결. 앱 비밀번호는 2단계 인증이 필요하고 구글은 권장하지 않는다 ✅ → 앱 비밀번호는 Supabase 대시보드에만 저장하고 리포·.env에는 넣지 않는다
   - 6-I1 🚨 알림 폭주(무한 재시도)
   - 6-B 🏁 SLA·알림 파이프라인 동작
   - 6-TR ➕🔍 Tech Radar 잡 설계 해설: 하루 상한을 한도의 75%로 둔 이유, 429·503을 잡 단위로 재시도하는 이유
@@ -615,7 +628,7 @@ flowchart LR
   - Next.js: App Router, 서버 컴포넌트, Route Handlers, 미들웨어, 환경 변수
   - TypeScript: 타입 추론, 유니온, strict 모드
   - Tailwind CSS + shadcn/ui: 유틸리티 클래스, 접근성을 갖춘 컴포넌트 복사·소유
-- **보안**: XSS, CSP, 토큰 저장 위치(HttpOnly 쿠키와 localStorage의 차이), CSRF
+- **보안**: XSS, CSP, 토큰 저장 위치(HttpOnly 쿠키와 localStorage의 차이), CSRF, 첨부 파일을 공개 URL로 노출하지 않기(A01)
 - **AI 포인트**: AI가 생성한 UI는 접근성, 리스트 key, 상태 위치, 불필요한 재렌더를 검사한다.
 - **미션**
   - 7-1 🧠 웹 기초 지도(HTML·CSS·JS·DOM·렌더링)
@@ -623,12 +636,13 @@ flowchart LR
   - 7-3 🧠 React 핵심(컴포넌트·props·state·effect)
   - 7-4 🎫 티켓 목록·상세(API 연동, 로딩·에러 상태)
   - 7-5 🎫 티켓 생성 폼(클라이언트·서버 검증)
-  - 7-6 🎫 로그인과 역할별 화면
+  - 7-6 🎫 로그인(Supabase Auth, GitHub)과 역할별 화면
   - 7-7 🎫 Tailwind·shadcn/ui 적용
   - 7-8 🔍 AI가 만든 컴포넌트 감사(접근성, key 누락, 불필요한 재렌더)
   - 7-9 🎫 XSS·CSP·토큰 저장 위치
   - 7-10 ⚖️ 렌더링 방식 선택(SSR·SSG·CSR)
   - 7-11 ➕🎫 접근성 자동 점검(axe)
+  - 7-12 ➕🎫 첨부 이미지: 브라우저에서 WebP로 압축 → 비공개 버킷 업로드(Storage 접근 정책, RLS) → DB에는 경로만, 조회 시 짧은 만료의 서명 URL. 업로드는 5MB로 제한 📐(무료 플랜: 파일당 50MB, 저장 1GB, 전송량은 조직 합산 5GB)
   - 7-B 🏁 OpsDesk 웹 v0.1(3가지 역할 흐름)
   - 7-TR ➕⚖️ Tech Radar(서버 렌더링)와 OpsDesk(Next.js): 같은 사람이 다른 선택을 한 이유
 
@@ -681,16 +695,16 @@ flowchart LR
 - **핵심 질문**: 어디에, 왜 올리나?
 - **개념**: 배포 선택지(PaaS·BaaS·VPS·컨테이너 플랫폼·K8s), 무료 플랜의 제약(슬립·일시정지·비상업 조건), 환경 분리, DNS(A·CNAME·TXT)와 TLS, 롤백, 설정·시크릿 주입
 - **🗺️ 도구 지도**
-  - Vercel: 프레임워크 자동 감지, 환경 변수, 도메인, 이전 배포로 롤백. Hobby는 개인·비상업 용도만
+  - Vercel: 프레임워크 자동 감지, 환경 변수, 도메인, 이전 배포로 롤백. Hobby는 개인·비상업 용도만이고, 한도를 넘으면 과금 대신 일시정지된다(30일 대기) ✅
   - Render: 네이티브·Docker 배포, 헬스체크, 무료 슬립(15분)
   - Supabase: Postgres, 연결 문자열, 대시보드, 무료 플랜 한도
 - **미션**
   - 10-1 🧠 배포 선택지 지도
   - 10-2 ⚖️ OpsDesk 배포안 선택(무료 플랜 제약 비교표)
-  - 10-3 🎫 DB(Supabase) 생성과 마이그레이션
+  - 10-3 🎫 DB를 Supabase로 이전(5-7에서 만든 프로젝트)과 마이그레이션
   - 10-4 🎫 백엔드(Render Free) 배포 + 콜드스타트 측정
   - 10-5 🎫 프론트(Vercel) 배포
-  - 10-6 🎫 도메인·DNS·TLS
+  - 10-6 🎫 도메인·DNS·TLS(.com 구매, DNS는 Cloudflare 무료 DNS로 위임)
   - 10-7 🎫 환경 분리(dev·preview·prod)와 설정 관리
   - 10-8 ➕🎫 VPS를 2~4주 빌려 같은 앱을 직접 올리고 PaaS와 비교
   - 10-9 🎫 도그푸딩 시작: Product Forge 작업·장애를 OpsDesk 티켓으로 관리
@@ -709,7 +723,7 @@ flowchart LR
 - **보안**
   - A03 공급망 실패: 액션을 SHA로 고정한다. 2025년 3월 tj-actions/changed-files 침해(CVE-2025-30066)로 이 액션을 쓰던 리포들의 CI 로그에 시크릿이 노출됐다.
   - A02 설정 오류: `permissions`를 최소화하고, 시크릿이 필요한 잡에서 `pull_request_target`으로 외부 코드를 실행하지 않는다.
-- **사실** ✅: 공개 리포는 표준 GitHub 호스티드 러너가 무료다.
+- **사실** ✅: 공개 리포는 표준 GitHub 호스티드 러너가 무료다. 비공개 리포는 GitHub Free 기준 월 $12 사용액(리눅스 기본 러너 약 2,000분 상당, 계산값)과 아티팩트 저장 500MB가 포함된다. OpsDesk는 공개 리포로 유지한다.
 - **미션**
   - 11-1 🧠 CI·CD와 Actions 구조
   - 11-2 🎫 CI: lint·type·test(백·프론트)
@@ -750,7 +764,7 @@ flowchart LR
 - **개념**: 리전, IAM과 최소권한, 네트워크(CIDR·서브넷), 관리형 서비스, 공유 책임 모델, IaC, 선언형 상태(state·plan·drift)
 - **🗺️ 도구 지도**
   - Terraform(대안 OpenTofu): provider, resource, state, plan/apply, 모듈
-  - 무료로 실습할 대상: GitHub provider(리포 설정·ruleset), Cloudflare provider(DNS)
+  - 무료로 실습할 대상: GitHub provider(리포 설정·ruleset), Cloudflare provider(DNS). Cloudflare provider로 DNS를 다루려면 10-6에서 도메인 DNS를 Cloudflare로 위임해 둬야 한다
   - AWS(➕): 신규 계정 크레딧. 카드 등록이 필요하고 과금 사고 위험이 있다
 - **미션**
   - 13-1 🧠 클라우드 기본(IAM·네트워크·관리형 서비스·공유 책임)
@@ -820,7 +834,7 @@ flowchart LR
   - 16-1 🧠 제품 지표(북극성·퍼널·리텐션)
   - 16-2 🎫 트래킹 플랜(이벤트 이름과 속성 규칙)
   - 16-3 🎫 PostHog 연동(프론트·백)
-  - 16-4 🎫 합성 트래픽 시뮬레이터(가상 직원 50명, `synthetic=true` 표시)
+  - 16-4 🎫 합성 트래픽 시뮬레이터(가상 직원 50명, `synthetic=true` 표시). 가상 직원 계정은 메일 발송 없이 서버 쪽에서 만들고(구현 시 Supabase 관리 API 확인), 요청은 Vercel을 거치지 않고 백엔드 API로 직접 보내 Hobby 한도(함수 호출 100만 회, Active CPU 4시간)를 지킨다
   - 16-5 🎫 퍼널·리텐션 분석(합성과 실사용 구분)
   - 16-6 🎫 피처 플래그로 단계적 출시
   - 16-7 🎫 피드백 모듈: 제출·투표·AI 중복 병합
@@ -844,7 +858,7 @@ flowchart LR
   - 17-8 🧠 면접형 드릴: ADR 기반 트레이드오프 20문항
   - 17-B 🏁 개선 사이클 리포트 + 졸업 심사
 
-미션 수는 장별로 10·12·12·11·12·16·10·13·11·10·12·12·9·8·11·14·12·9개, **합계 204개**(코어 176, ➕선택 28)다.
+미션 수는 장별로 10·12·12·11·12·17·11·14·11·10·12·12·9·8·11·14·12·9개, **합계 207개**(코어 176, ➕선택 31)다.
 
 ---
 
@@ -890,20 +904,22 @@ brew "actionlint"; brew "gitleaks"; brew "pre-commit"
 
 | 항목 | 선택 | 확인된 제약 | 비용 |
 |---|---|---|---|
-| 프론트 호스팅 | Vercel Hobby | 개인·비상업 용도만 ✅ | 0원 |
+| 프론트 호스팅 | Vercel Hobby | 개인·비상업 용도만. 월 데이터 전송 100GB, 함수 호출 100만 회, Active CPU 4시간, 메모리 360GB-시간. 넘으면 과금 대신 일시정지(30일 대기) ✅ | 0원 |
 | 백엔드 호스팅 | Render Free | 15분 무트래픽 시 슬립, 깨어나는 데 최대 약 1분, 월 750시간, 백그라운드 워커·크론 무료 없음 ✅ | 0원 |
-| DB | Supabase Free | 500MB, 활성 프로젝트 2개, 7일 비활성 시 일시정지 ⚠️(서드파티 출처). Tech Radar가 이미 1개 사용 중 | 0원 |
-| 스케줄러 | GitHub Actions 예약 실행 | 최소 5분 간격, 지연 가능. 깨울 때마다 Render 무료 시간 소모 → 30~60분 간격 권장 📐 | 0원 |
-| 알림 | 앱 내 + Slack 웹훅. 메일은 개발용 Mailpit | 운영 메일 발송은 무료 구간이 있는 메일 API의 조건을 확인한 뒤 ➕ | 0원 |
+| DB | Supabase Free | 프로젝트당 500MB, 무료 프로젝트 2개(일시정지된 프로젝트는 제외), 1주 비활성 시 일시정지, 전송량은 조직 합산 5GB ✅. Tech Radar가 이미 1개를 쓰고 전송량도 나눠 쓴다 | 0원 |
+| 인증 | Supabase Auth(GitHub 로그인) | 월 활성 사용자 5만 명 ✅. 기본 메일은 프로젝트 팀원 주소에만 시간당 2통 ✅ → GitHub 로그인으로 가입 메일 자체를 없앤다 | 0원 |
+| 스케줄러 | GitHub Actions 예약 실행(공개 리포) | 최소 5분 간격, 지연 가능. 깨울 때마다 Render 무료 시간 소모 → 30~60분 간격 권장 📐. 비공개 리포라면 30분 간격은 월 약 1,440회이고, 1회를 1분으로 치면 포함량(약 2,000분 상당)의 약 70%다 📐(1분 미만 올림 여부 미확인). Vercel Cron은 Hobby에서 하루 1회라 제외 ✅ | 0원 |
+| 알림 | 앱 내 + Slack 웹훅. 메일은 개발용 Mailpit | 운영 메일은 ➕ 6-8(Gmail SMTP를 커스텀 SMTP로). 개인 Gmail의 하루 발송 한도는 확인하지 못했다 ⚠️ | 0원 |
 | LLM | Gemini 무료 등급(OpsDesk 전용 프로젝트 키) + 로컬 모델 | 무료 등급 입력은 구글 제품 개선에 쓰이고 사람이 읽을 수 있다 ✅ → 합성 데이터만 보낸다. 한도는 프로젝트 단위이고 보장되지 않는다 | 0원 |
 | 유료 LLM 비교 | ➕ 15-9에서만 | 7.4절 | 월 $1~3 📐 |
 | 임베딩 | 로컬 모델 기본 | — | 0원 |
+| 첨부 파일(➕ 7-12) | Supabase Storage 비공개 버킷 | 저장 1GB, 파일당 50MB, 전송량은 DB·Auth와 합산 ✅ | 0원 |
 | 관측·분석 | Sentry, UptimeRobot, PostHog 무료 플랜 | PostHog 월 100만 이벤트 등 ✅. 나머지 한도는 가입 시 확인 | 0원 |
-| 도메인 | 구매 권장 | 무료 서브도메인으로는 DNS 레코드 관리 실습이 안 된다 | 연 1~2만 원대 📐 |
+| 도메인 | .com 구매 권장(Spaceship 등) | 무료 서브도메인으로는 DNS 레코드 관리 실습이 안 된다. 가격 비교 사이트 기준 ⚠️(등록 업체 공식 가격표 미확인): .com은 첫해 프로모션 $3~5대(1인 1회), 갱신 연 약 $10. .xyz·.site는 첫해 1달러 안팎이지만 갱신 $13~28, .io는 갱신 $51.75 | 첫해 약 $3~5, 이후 연 약 $10 ⚠️ |
 | VPS | ➕ 2~4주 대여(10-8) | 시간 단위 과금 | 일회성 수천~1만 원대 📐 |
 | AWS | ➕ 신규 크레딧(13-6) | 카드 등록 필요, 과금 사고 위험, 최대 6개월 ✅ | 크레딧 범위 |
 
-- **월 비용**: 평달 약 1천~2천 원(도메인 비용을 월로 나눈 값), 많이 드는 달 1~2만 원(VPS 대여 + 유료 LLM 비교)이다.
+- **월 비용**: 평달은 도메인 비용을 월로 나눈 값뿐이다. 첫해 월 약 300~600원, 2년차부터 월 약 1,200원이다(1달러 1,400원 가정 📐). 많이 드는 달은 1~2만 원(VPS 대여 + 유료 LLM 비교)이다.
 - **예산 밖**: AI 코딩 도구 구독은 별도 지출로 본다.
 - **무료 플랜 약관은 자주 바뀐다.** 2026년에만 Postman 무료 플랜 1인 제한, Hetzner 가격 인상, Oracle 무료 한도 축소 보도가 있었다. 10-2와 각 장 첫 미션에서 "무료 대안 점검" 체크를 한다.
 - **무료 VPS(Oracle Always Free)는 제외했다.** 2026년 무료 한도 축소 보도, 7일 유휴 시 회수, 용량 부족과 강제 비활성화 사례가 있어 안정성이 낮다.
@@ -917,6 +933,10 @@ brew "actionlint"; brew "gitleaks"; brew "pre-commit"
 | Supabase 일시정지 | 의존 서비스 장애, 재시도, 상태 페이지 | 14-I2 |
 | Vercel Hobby 비상업 조건 | 라이선스·약관 읽기, 상용 전환 시점 | 10-2 |
 | Gemini 무료 등급 데이터 사용 | 데이터 분류, 무엇을 외부 모델에 보내면 안 되나 | 15-9 |
+| Supabase 기본 메일 제약(팀원만, 시간당 2통) | 트랜잭션 메일과 커스텀 SMTP | 5-7, 6-8 |
+| 로그아웃 후에도 유효한 JWT | 토큰 수명과 폐기의 한계 | 5-8 |
+| Vercel 한도 초과 시 일시정지 | 사용량 모니터링, 트래픽 경로 설계 | 16-4 |
+| Supabase 전송량 조직 합산 | 여러 프로젝트가 한도를 나눠 쓰는 구조, 업로드 크기 제한 | 7-12 |
 
 ### 7.4 유료 LLM을 비교할 때의 비용 📐
 
@@ -1008,7 +1028,7 @@ class Mission:
 | git, github | branch_exists, commits_match, pushed, pr_merged, ruleset_requires, run_success, secret_scanning_enabled | git CLI, `gh api` |
 | http | get(status, schema), latency, tls(issuer, days_left), cold_start_ms | httpx, ssl |
 | api_contract | openapi_valid, endpoints_match(spec) | OpenAPI 파일 + 실행 중인 서버 |
-| authz | matrix(역할 × 엔드포인트 → 기대 상태 코드) | 테스트 계정 토큰 |
+| authz | matrix(역할 × 엔드포인트 → 기대 상태 코드) | 역할별 테스트 계정(4.10절)의 JWT |
 | db | query_equals, constraint_exists, migration_head, append_only | psycopg |
 | node, e2e | tsc_ok, eslint_ok, build_ok, playwright_passed | pnpm, Playwright JSON 리포트 |
 | docker, k8s | image_user, healthy, compose_healthy, deployment_ready, probes | `docker … --format json`, `kubectl -o json` |
@@ -1082,11 +1102,12 @@ class Mission:
 
 | 리스크 | 영향 | 대응 |
 |---|---|---|
-| 콘텐츠 제작량(204개, 코어 176) | 일정 지연, 품질 편차 | 코어 우선, 선택은 요청 시 제작, 템플릿 퀴즈, 외부 실습 연결, 픽스처 테스트 의무화 |
+| 콘텐츠 제작량(207개, 코어 176) | 일정 지연, 품질 편차 | 코어 우선, 선택은 요청 시 제작, 템플릿 퀴즈, 외부 실습 연결, 픽스처 테스트 의무화 |
 | 일정 낙관 편향 | S1은 계획 대비 50~63% 진행 | 버퍼 2주, 보수 일정 병기, 1·2장 실측 후 재계산 |
 | 두 프로젝트 병행(OpsDesk + Tech Radar) | 집중력 분산 | Tech Radar 미션은 전부 선택이고 해설·제안서 중심. 반영은 Tech Radar 절차로 |
 | 합성 데이터 분석의 한계 | 실제 사용자 행동을 검증할 수 없음 | 도그푸딩 데이터와 구분해 표시, 결론의 범위를 문서에 명시 |
-| Supabase 무료 활성 프로젝트 2개 | Tech Radar가 1개 사용 → 다른 프로젝트가 있으면 OpsDesk 자리 없음 | 10-3 전에 확인. 없으면 개발은 로컬 Postgres, 운영 DB는 대안 검토 |
+| Supabase 무료 프로젝트 2개·전송량 조직 합산 5GB | Tech Radar와 프로젝트 자리·전송량을 나눠 씀 | 5-7에서 프로젝트를 만들기 전에 확인. 자리가 없으면 쓰지 않는 무료 프로젝트를 일시정지한다(일시정지된 프로젝트는 개수에서 제외 ✅). 첨부 업로드는 5MB로 제한. 전송량이 부족하면 개발은 로컬 Postgres |
+| 관리형 서비스 종속 | Supabase Auth·Storage에 묶임 | ➕ 5-14에서 직접 구현과 비교한다. 코어 경로에서도 역할·데이터는 OpsDesk DB에 두고 서버는 표준 JWT 검증만 해서 교체 비용을 줄인다 |
 | 무료 플랜 약관 변경 | 비용 표가 틀어짐 | 표에 출처와 날짜를 남기고 사용 시점에 재확인 |
 | TypeScript 처음 사용 | 7장 부담 | 풀이 예시형으로 시작, 리터러시 수준으로 범위 한정 |
 | AI 과의존 | 숙련 형성 저하(1.4절) | 태그, 설명 게이트, 🔒 장애·드릴, 위임은 손으로 한 번 한 뒤에만. 강제 수단은 없으므로 자율 준수 |
@@ -1096,12 +1117,14 @@ class Mission:
 
 ## 12. 미결정·확인 필요
 
-1. **Supabase 활성 프로젝트 수**: 무료는 2개이고 Tech Radar가 1개 쓴다. 다른 프로젝트가 있는지 10-3 전에 확인한다.
-2. **도메인 구매 여부**: 권장(DNS 실습). 사지 않으면 10-6과 13-4는 플랫폼 서브도메인으로 축소한다.
-3. **운영 알림 채널**: 기본은 앱 내 + Slack 웹훅. 운영 메일은 무료 구간이 있는 메일 API의 조건을 확인한 뒤 선택한다.
-4. **Supabase 무료 플랜의 pgvector 지원** ⚠️: 공식 문서로 확인하지 못했다. 안 되면 15-6은 로컬 pgvector로 한다.
+1. **Supabase 프로젝트 수와 전송량**: 무료 프로젝트는 2개(일시정지된 프로젝트는 제외)이고 Tech Radar가 1개를 쓴다. 전송량 5GB는 조직 합산이라 같은 조직이면 Tech Radar와 나눠 쓴다. 5-7에서 프로젝트를 만들기 전에 다른 프로젝트와 조직 구성을 확인한다.
+2. **도메인**: .com으로 정했다. 구매 시점의 프로모션과 갱신가는 결제 화면에서 확인한다. 사지 않으면 10-6과 13-4는 플랫폼 서브도메인으로 축소한다.
+3. **운영 알림 채널**: 기본은 앱 내 + Slack 웹훅으로 정했다. 운영 메일은 ➕ 6-8(Gmail SMTP)이고, 개인 Gmail의 하루 발송 한도는 확인하지 못했다.
+4. **Supabase의 pgvector**: 공식 문서에 모든 신규 프로젝트에서 켤 수 있다고 나온다 ✅. 무료 플랜 한도는 따로 명시돼 있지 않아 15-6에서 사용량을 확인한다.
 5. **Gemini 무료 등급 키**: OpsDesk 전용 프로젝트를 따로 만든다. 한도는 프로젝트 단위라 Tech Radar의 하루 상한과 섞이지 않는다(Tech Radar ADR-0004 기록 기준).
 6. **시작일**: W1을 2026-11-16로 가정했다. M0·M1 제작 일정에 따라 바뀐다.
+7. **Vercel Schedules**: Hobby 최소 15분 간격이라는 내용은 검색 요약으로만 확인했다 ⚠️. 6-5 전에 공식 문서로 확인한다.
+8. **테스트 계정 만드는 방법** ⚠️: 메일 없이 계정을 만드는 방법(대시보드·관리 API)과, 비밀번호 로그인을 켰을 때 공개 이메일 가입을 막는 설정을 공식 문서로 확인하지 못했다. 5-7 전에 확인한다.
 
 ---
 
@@ -1114,7 +1137,7 @@ class Mission:
 - Anthropic, How AI assistance impacts the formation of coding skills(2026-01-29): https://www.anthropic.com/research/AI-assistance-coding-skills
 - METR 연구 보도(2025-07-10): https://www.infoworld.com/article/4020931/ai-coding-tools-can-slow-down-seasoned-developers-by-19.html
 - Render 무료 플랜: https://render.com/docs/free · 무료 워커·크론 없음: https://community.render.com/t/web-worker-not-part-of-the-free-plan/24555 · https://render.com/articles/how-render-handles-scheduled-tasks.md
-- Supabase 무료 플랜(서드파티): https://www.itpathsolutions.com/supabase-free-tier-limits · https://livemy.app/blog/supabase-pricing · Supabase Cron: https://supabase.com/modules/cron.md · https://supabase.com/docs/guides/functions/schedule-functions.md
+- Supabase 무료 플랜(서드파티, v0.3 근거. v0.3.1에서 아래 공식 문서로 대체): https://www.itpathsolutions.com/supabase-free-tier-limits · https://livemy.app/blog/supabase-pricing · Supabase Cron: https://supabase.com/modules/cron.md · https://supabase.com/docs/guides/functions/schedule-functions.md
 - Vercel Hobby: https://vercel.com/docs/plans/hobby · https://vercel.com/terms
 - Gemini API 약관: https://ai.google.dev/terms
 - PostHog 무료 구간: https://posthog.com/eu
@@ -1127,10 +1150,16 @@ class Mission:
 - Claude 가격: https://platform.claude.com/docs/en/about-claude/pricing
 - 학습 과학: Dunlosky et al.(2013) *Psychological Science in the Public Interest* 14(1), 4–58 · Roediger & Karpicke(2006) *Psychological Science* 17(3), 249–255 · Sweller & Cooper(1985) *Cognition and Instruction* 2(1), 59–89 · Renkl & Atkinson(2003) *Educational Psychologist* 38(1), 15–22
 - 학습자 리포: https://github.com/sikomar00/tech-radar-agent · https://github.com/sikomar00/sailingstone-quest
+- (v0.3.1) Vercel: https://vercel.com/docs/plans/hobby · https://vercel.com/docs/functions/usage-and-pricing · https://vercel.com/docs/limits/fair-use-guidelines · https://vercel.com/docs/cron-jobs/usage-and-pricing · https://vercel.com/docs/schedules/migrate-from-cron-jobs
+- (v0.3.1) GitHub Actions 과금: https://docs.github.com/en/actions/concepts/billing-and-usage · https://docs.github.com/en/billing/reference/product-usage-included
+- (v0.3.1) Supabase: https://supabase.com/docs/guides/platform/billing-on-supabase · https://supabase.com/kb/faqs/platform/free-project-pausing · https://supabase.com/docs/guides/platform/manage-your-usage/egress · https://supabase.com/docs/guides/auth/auth-smtp · https://supabase.com/changelog/29370-supabase-auth-changes-to-default-email-provider · https://supabase.com/changelog/46599-changes-to-email-template-customisation-on-free-tier · https://supabase.com/docs/guides/auth/sessions · https://supabase.com/docs/guides/storage/uploads/file-limits · https://supabase.com/docs/guides/storage/pricing · https://supabase.com/docs/guides/storage/buckets/fundamentals · https://supabase.com/docs/guides/storage/serving/downloads · https://supabase.com/docs/guides/ai/vector-columns
+- (v0.3.1) 도메인 가격(비교 사이트, 제휴 링크 포함): https://tldes.com/registrars/spaceship · https://domainoffer.net/registrar/spaceship · https://tld-list.com/registrars/spaceship/promos
+- (v0.3.1) Google: https://support.google.com/mail/answer/185833?hl=en · https://support.google.com/a/answer/166852?hl=en
+- (v0.3.1) Firestore 한도: https://firebase.google.com/docs/firestore/quotas
 
 ---
 
-## 부록 A. 결정 기록 (v0.1 → v0.3)
+## 부록 A. 결정 기록 (v0.1 → v0.3.1)
 
 ### A.1 v0.2 페르소나 리뷰에서 유지한 결정
 
@@ -1160,3 +1189,21 @@ class Mission:
 - Text-to-SQL·dbt·Metabase 중심의 AI-BI 장
 - VPS 상시 k3s 운영, EKS DR 리허설, CKAD 트랙
 - 3노드 HA, Jenkins·GitLab CI, Power BI(macOS 미지원), 리더보드, LLM 서술형 채점
+
+### A.5 무료 리소스 글 검토 반영 (v0.3.1, 2026-11-09)
+
+외부 글(2026-08 작성)에 나온 무료 리소스 정보를 공식 문서 검색으로 확인하고 다음처럼 걸렀다.
+
+| 항목 | 결정 | 반영 위치 |
+|---|---|---|
+| Supabase Auth | 적용: GitHub 로그인 + FastAPI JWT 검증으로 인증 교체. 직접 구현과의 비교는 선택 미션 | 1.1, 4.2, 4.4, 4.10, 5-7·5-8·➕5-14, 7-6 |
+| Vercel Hobby 한도와 일시정지 | 적용: 비용 표, 합성 트래픽 경로 | 7.2, 16-4 |
+| Vercel Cron·Schedules | 적용: 스케줄러 비교 근거(Cron은 하루 1회라 제외) | 4.10, 6장 |
+| 도메인(.com) | 적용: 갱신가 기준으로 .com 권장, DNS는 Cloudflare로 위임 | 7.2, 10-6, 13장 |
+| 이미지 업로드 흐름 | 조건부: 공개 URL 대신 비공개 버킷 + 서명 URL로 바꿔 선택 미션 | 7-12 |
+| Gmail SMTP | 조건부: 운영 메일 선택 미션. 앱 비밀번호는 대시보드에만 저장 | 6-8 |
+| Firestore | 미적용: 관계형 요구라 Postgres 유지. 4-8 비교 자료로만 사용 | 4-8 |
+| GitHub Actions | 유지: 공개 리포 무료. 비공개 한도 표기를 월 $12 사용액으로 정정 | 11장, 7.2 |
+
+- **반영하면서 바뀐 순서**: 인증이 5장에 필요해서 Supabase 프로젝트를 10-3이 아니라 5-7에서 만든다. DB는 10-3에서 같은 프로젝트로 옮긴다.
+- **개수 변화**: 코어 176개·234시간은 그대로이고, 선택 미션 3개(5-14, 6-8, 7-12)가 늘어 전체 207개가 됐다.
