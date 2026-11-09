@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 채점은 화면 출력이 아니라 시스템 상태를 읽기 전용으로 검사한다
 

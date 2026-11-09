@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # S1 엔진을 새로 짜지 않고 가져와 패키지로 재구성한다
 

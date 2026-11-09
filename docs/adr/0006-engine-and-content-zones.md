@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 엔진 구역과 콘텐츠 구역을 나누고, 콘텐츠는 AI만 만든다
 

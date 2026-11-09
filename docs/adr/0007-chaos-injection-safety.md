@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 장애 주입은 라벨 붙인 학습용 리소스에만, 원상 복구 수단이 있을 때만 한다
 

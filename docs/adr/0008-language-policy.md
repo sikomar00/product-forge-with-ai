@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 채팅·문서·주석·미션은 한국어로, 코드 식별자·DB 이름·커밋 type은 영어로 쓴다
 

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 미션 콘텐츠는 데이터 파일이 아니라 Python 모듈로 쓴다
 

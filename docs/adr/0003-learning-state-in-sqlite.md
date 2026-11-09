@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 학습 상태는 JSON 파일 대신 SQLite에 저장한다
 

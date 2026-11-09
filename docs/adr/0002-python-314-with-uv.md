@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 ---
 # 엔진은 Python 3.14로 쓰고, 설치와 실행은 uv로 한다
 
