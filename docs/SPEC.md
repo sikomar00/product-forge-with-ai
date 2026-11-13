@@ -225,9 +225,9 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 모듈별 근거 데이터(design.md 8.4절): `fs`(pathlib), `shell`(subprocess, 상태를 바꾸지 않는 명령만), `ssh`(랩 VM에서 명령 실행), `git`(git CLI의 porcelain·format 출력), `github`(`gh api`의 JSON, `ctx.gh`를 거쳐 기록 재생 가능), `http`(표준 라이브러리 `urllib`·`ssl`. httpx를 쓸지는 Plan).
 - 읽기 전용 시험(NF-02): 프리미티브를 실행하기 전후로 대상의 상태(파일 해시, `git status --porcelain`과 HEAD)가 같아야 한다.
 - (T1-1 구현, `quest/checks/`) 결과를 바로 쓰는 함수는 `Result`를, 값을 꺼내는 함수(`fs.json_value`, `github.value`, `http.json_value`, `git.branch` 등)는 값 또는 `MISSING`을 돌려준다. 비교는 콘텐츠가 `checks.verdict()`로 한다.
-- `shell`·`ssh`는 읽기 전용 허용 목록의 명령만 실행하고, 그 밖은 `ValueError`(콘텐츠 작성 오류 → 시도는 error). (M1 리뷰 반영) 앞부분만이 아니라 인자까지 본다: `date`는 `+형식`·`-u`만, `hostname`은 조회 옵션만, `ip`는 `-j … show`만, `journalctl --vacuum…`·`ss -K` 같은 바꾸는 인자는 거절한다. `find`는 넣지 않았다. 작업 폴더가 없으면 `CheckEnvError`다(다른 폴더에서 돌아 엉뚱하게 통과하지 않게). `git`은 `--no-optional-locks`로 인덱스도 건드리지 않는다.
+- `shell`·`ssh`는 읽기 전용 허용 목록의 명령만 실행하고, 그 밖은 `ValueError`(콘텐츠 작성 오류 → 시도는 error). (M1 리뷰 반영) 앞부분만이 아니라 인자까지 본다: `date`는 `+형식`·`-u`만, `hostname`은 조회 옵션만, `ip`는 `-j … show`만, `journalctl --vacuum…`·`ss -K` 같은 바꾸는 인자는 거절한다. `find`는 넣지 않았다. 짧은 옵션을 붙여 써도(`ss -tK`) 잡는다. (3차 리뷰 반영) 작업 폴더가 아직 없으면 빈 임시 폴더에서 돌린다: `which`·`uname`은 그대로 되고, 상대 경로를 보는 명령은 '없음'으로 실패해 다른 폴더에서 잘못 통과하지 않는다. `git`은 `--no-optional-locks`로 인덱스도 건드리지 않는다.
 - (M1 리뷰 반영, CLAUDE.md '화면 출력 문자열 매칭 금지') `shell`·`ssh`는 정규식 출력 매칭을 두지 않는다. 판정은 `succeeds`(종료 코드), `output_equals`(형식을 지정한 출력의 완전 일치, 예: `stat -c %a`), `json_value`(`ip -j`, `lsblk -J` 등 JSON 출력)로 한다. `MISSING`과 키 경로 따라가기(`dig`)는 `quest/checks/__init__.py` 하나를 모두 쓴다.
-- `ssh`는 `orb -m <머신> <명령>`으로 실행한다(맥 미확인, T1-4에서 확인). `http`에서 서버 무응답·연결 끊김·응답 잘림은 실패, 인증서 문제는 `CheckEnvError`다.
+- `ssh`는 `orb -m <머신> <명령>`으로 실행한다(맥 미확인, T1-4에서 확인). `http`에서 서버 무응답·연결 끊김·응답 잘림은 실패, 인증서 문제는 `CheckEnvError`, 주소가 `http://`·`https://`로 시작하지 않으면 콘텐츠 작성 오류(`ValueError`)다.
 - `ctx.gh`: 실제 명령은 `GhLive`(`gh api`, GET만, 404는 `MISSING`), 플레이스루는 `GhReplay`(기록 파일), 출시 점검은 `GhRecorder`(실제 호출을 기록)를 쓴다. 기록 파일에서 없던 리소스는 `{"__missing__": true}`다.
 
 ### `quest doctor` (M1-02, M0-19)
@@ -261,8 +261,8 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 진행 중인 장애는 하나뿐이다(ERD). MTTR은 주입 시각부터 복구 체크 통과까지다.
 - (T1-3 결정, `quest/chaos/`, `commands/incident.py`) 시나리오는 `Mission.chaos = Chaos(targets, inject, verify, cleanup)`이고, 근본 원인 퀴즈는 `Mission.rca`(문항)다. 장애 미션은 chaos가 있어야 불러온다.
 - 주입: 장애 미션을 `quest mission`으로 볼 때 대상을 보여 주고 확인을 받은 뒤 한다. 중단한 뒤 다시 보면 다시 묻는다. inject가 예외를 내거나 verify가 거짓이면 바로 되돌리고 aborted로 닫는다(종료 코드 3).
-- 경로 스냅샷은 대상 폴더를 `.git`까지 tar로 묶는다(git bundle과 같은 상태를 한 방법으로). (M1 리뷰 반영) 되돌릴 때는 임시 폴더에 먼저 다 푼 뒤 바꿔 끼운다(풀다 실패해도 지금 파일은 남는다). 우리가 만든 묶음이라 `filter="tar"`로 푼다(`data`는 `.venv` 같은 절대 경로 링크를 거절한다). 읽기 전용 파일(Windows의 `.git/objects`)도 지운다. 없던 경로는 되돌릴 때 지운다. 복구·중단하면 스냅샷 폴더를 지운다.
-- (M1 리뷰 반영) 중단은 시나리오 cleanup(프로세스 정지 등)을 먼저 하고 파일을 되돌린다. cleanup이 실패해도 파일은 되돌리고, 되돌리기가 실패하면 장애를 닫지 않고 스냅샷 위치를 알린다. 장애의 미션이 콘텐츠에서 사라져도 파일은 되돌린다. 진행 중인 장애가 있으면 `quest update`를 거절한다.
+- 경로 스냅샷은 대상 폴더를 `.git`까지 tar로 묶는다(git bundle과 같은 상태를 한 방법으로). (M1 리뷰 반영) 되돌릴 때는 임시 폴더에 먼저 다 푼 뒤 바꿔 끼운다(풀다 실패해도 지금 파일은 남는다). 우리가 만든 묶음이라 `filter="tar"`로 푼다(`data`는 `.venv` 같은 절대 경로 링크를 거절한다). 지우기 전에 대상 안의 권한을 소유자 읽기·쓰기로 연다(Windows의 읽기 전용 `.git/objects`, 시나리오의 `chmod 000`). 심볼릭 링크는 따라가지 않고 링크만 지운다. 시나리오가 상위 폴더까지 지웠으면 다시 만들고 푼다. 없던 경로는 되돌릴 때 지운다. 복구·중단하면 스냅샷 폴더를 지운다.
+- (M1 리뷰 반영) 중단은 시나리오 cleanup(프로세스 정지 등)을 먼저 하고 파일을 되돌린다. (3차 리뷰 반영) cleanup이나 되돌리기가 하나라도 실패하면 **장애를 닫지 않고 스냅샷도 남긴다**(cleanup 실패여도 파일은 되돌린다). 원인을 고친 뒤 다시 abort한다. 랩 머신 안의 변경은 cleanup만 되돌리므로, 실패한 채 닫으면 장애가 남는다. 장애의 미션이 콘텐츠에서 사라져도 파일은 되돌린다. 진행 중인 장애가 있으면 `quest update`를 거절한다.
 - 복구: 진행 중인 장애의 미션에서 복구 체크를 모두 통과하면 recovered(MTTR 끝). 그다음 근본 원인 퀴즈를 묻고, 틀리면 미션은 통과가 아니다(`rca_correct` 기록). 다시 `quest check`하면 퀴즈만 다시 본다. 장애를 시작하지 않은 장애 미션은 채점하지 않는다(종료 코드 2).
 - 진행 중인 장애가 있으면 승급 시험과 초기화를 거절한다. 허용 대상은 지금 경로와 `lab:pf-lab…`만이고, Docker(9장)·k3d(12장)는 그 장을 만들 때 더한다.
 
