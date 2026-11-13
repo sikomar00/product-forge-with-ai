@@ -22,6 +22,10 @@ dev = [
 requires = ["uv_build==0.13.6"]
 build-backend = "uv_build"
 
+# 시스템 Python마다 SQLite 버전이 달라서(러너에서 3.46~3.54) uv가 관리하는 같은 빌드만 쓴다.
+[tool.uv]
+python-preference = "only-managed"
+
 [tool.uv.build-backend]
 module-root = ""
 
