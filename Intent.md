@@ -21,7 +21,8 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-2 상태 DB(사용자 + AI, Windows). 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
+- 다음 작업: T0-3 콘텐츠 불러오기와 가짜 콘텐츠(사용자 + AI, Windows).
+- T0-2 완료(2026-11-13): `core/config.py`·`core/state.py`·`core/schema/v1_0.sql`. 엔진이 만든 DB에서 DDL 점검 67/67, 외래 키를 끄면 3개가 실패해 점검이 동작함을 확인. meta의 `engine_version` 갱신은 명령이 생기는 T0-4에서 한다. 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
 - T0-1 완료(2026-11-13, 브랜치 `engine/windows-setup`): CI가 ubuntu·macos에서 초록(ruff, pytest 1개, DDL 67/67). Python은 uv 관리 빌드 3.14.10으로 고정해 세 환경 모두 SQLite 3.53.1이다. 빌드 백엔드로 uv_build 0.13.6을 썼다(uv와 같은 버전).
 - 확인할 것: 맥 로컬에서 SQLite 3.53.1인지 확인(CI macos 러너에서는 3.53.1), pandas 3.0.3과 S1 코드의 호환(T0-8), OrbStack 미확인 3건(T1-4), GitHub 러너의 systemd(T1-6).
 - 실측 기록: T0-4를 마치면 채운다.
