@@ -32,6 +32,7 @@ def test_content_tools_reads_chapters_zero_to_four() -> None:
 def test_doctor_reports_each_tool(
     game: Path, quest: Quest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(doctor.sys, "platform", "darwin")  # 맥에서는 orb도 검사한다
     found = {"uv": "0.13.6", "git": "2.55.0", "gh": "2.102.0", "orb": None, "jq": "1.6"}
     monkeypatch.setattr(external, "version_of", lambda cmd: found.get(cmd[0]))
     monkeypatch.setattr(
@@ -154,3 +155,41 @@ def test_update_needs_repo_in_config(game: Path, quest: Quest) -> None:
         encoding="utf-8")
     code, out = quest("update")
     assert code == 3 and "[content] repo" in out
+
+
+def test_doctor_skips_orb_off_macos(game: Path, quest: Quest,
+                                    monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctor.sys, "platform", "win32")
+    monkeypatch.setattr(external, "version_of", lambda cmd: "9.9.9")
+    monkeypatch.setattr(
+        external, "run", lambda args, cwd=None: subprocess.CompletedProcess(args, 0, "", "")
+    )
+    monkeypatch.setattr(doctor, "_content_manifest", lambda: {})
+    code, out = quest("doctor")
+    assert code == 0 and "macOS 전용이라" in out and "orb 없음" not in out
+
+
+def test_doctor_bad_version_format_marks_only_that_tool(
+    game: Path, quest: Quest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(external, "version_of", lambda cmd: "1.0")
+    monkeypatch.setattr(
+        external, "run", lambda args, cwd=None: subprocess.CompletedProcess(args, 0, "", "")
+    )
+    monkeypatch.setattr(doctor, "_content_manifest", lambda: {"tools": {"jq": {
+        "cmd": ["jq", "--version"], "version": "최신", "install": "brew install jq",
+        "chapter": 1}}})
+    code, out = quest("doctor")
+    assert code == 3 and "jq: 허용 버전 형식이 틀렸습니다" in out and "점검" in out
+
+
+def test_update_refused_during_incident(game: Path, quest: Quest, setup: Path,
+                                        answers: list[str]) -> None:
+    quest("update")
+    quest("mission")  # 0-1 시작(장애 행의 외래 키용)
+    conn = sqlite3.connect(game.parent / "home" / "state.db", isolation_level=None)
+    conn.execute("INSERT INTO incidents (mission_key, source, status, injected_at, snapshot_ref)"
+                 " VALUES ('m_f0000001', 'mission', 'active', '2026-01-01T00:00:00Z', 's')")
+    conn.close()
+    code, out = quest("update")
+    assert code == 3 and "진행 중인 장애" in out

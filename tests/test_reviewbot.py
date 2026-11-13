@@ -116,10 +116,13 @@ def fake_gh(monkeypatch: pytest.MonkeyPatch) -> dict:
             out = state["pr"]
         elif args[:3] == ["gh", "pr", "diff"]:
             out = DIFF_PRINT
+        elif args[:3] == ["gh", "api", "user"]:
+            out = "learner"
         elif args[-2:-1] == ["--input"]:
             state["reviews"].append(json.loads(Path(args[-1]).read_text(encoding="utf-8")))
         elif args[:2] == ["gh", "api"]:
-            out = json.dumps([{"body": r["body"]} for r in state["reviews"]])
+            lines = [json.dumps(["learner", r["body"]]) for r in state["reviews"]]
+            out = chr(10).join(lines)  # 리뷰 하나에 한 줄(gh -q의 @json 출력처럼)
         return subprocess.CompletedProcess(args, 0, out, "")
 
     monkeypatch.setattr(external, "run", run)
@@ -151,10 +154,50 @@ def test_bot_failure_does_not_block_grading(
     (game / "fixed.txt").write_text("x", encoding="utf-8")
     answers.append("2")  # 🚀 설명 게이트
     code, out = quest("check", "1-1")
-    assert "⚠️ 리뷰봇을 돌리지 못했습니다" in out and code == 0 and "✅ 1." not in out  # 감사 미션은 개수만
+    assert "⚠️ 리뷰봇을 돌리지 못했습니다" in out and code == 0
+    assert "✅ 1." not in out  # 감사 미션은 개수만
     assert "체크 1/1 통과" in out
 
 
 def test_mission_without_rules_never_calls_bot(game: Path, quest: Quest, fake_gh: dict) -> None:
     quest("check", "0-1")
     assert not any(c[:2] == ["gh", "pr"] for c in fake_gh["calls"])
+
+
+def test_added_line_starting_with_plus_plus_is_not_a_header() -> None:
+    diff = "\n".join([
+        "--- a/calc.py", "+++ b/calc.py", "@@ -1,1 +1,3 @@", " x = 1",
+        "+++ counter", "+print(x)",
+    ])
+    assert reviewbot.added_lines(diff) == [("calc.py", 2, "++ counter"), ("calc.py", 3, "print(x)")]
+
+
+def test_reviews_by_others_do_not_count(game: Path, quest: Quest, fake_gh: dict) -> None:
+    fake_gh["reviews"].append({"body": "🤖 리뷰봇: 남이 흉내 낸 리뷰"})
+    original = external.run
+
+    def others(args: list[str], cwd: Path | None = None, timeout: int = 60) -> object:
+        if args[:2] == ["gh", "api"] and "--paginate" in args:
+            return subprocess.CompletedProcess(args, 0, json.dumps(["someone", "🤖 리뷰봇: x"]), "")
+        return original(args, cwd, timeout)
+
+    external.run = others
+    try:
+        code, out = quest("check", "1-1")
+    finally:
+        external.run = original
+    assert "리뷰봇이 PR #7에" in out  # 다른 계정의 리뷰봇 흉내는 '이미 단 것'이 아니다
+
+
+def test_bot_only_looks_at_my_prs(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = []
+
+    def run(args: list[str], cwd: Path | None = None,
+            timeout: int = 60) -> subprocess.CompletedProcess[str]:
+        seen.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(external, "run", run)
+    assert reviewbot._latest_open_pr("me/opsdesk") is None
+    args = seen[0]
+    assert args[args.index("--author") + 1] == "@me"  # 공개 리포의 남의 PR에는 달지 않는다

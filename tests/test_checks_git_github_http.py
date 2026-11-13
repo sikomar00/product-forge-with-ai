@@ -170,3 +170,21 @@ def test_http_certificate_problem_is_env_error(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(http.urllib.request, "urlopen", bad)
     with pytest.raises(CheckEnvError, match="인증서"):
         http.get(_ctx(Path(".")), "https://example.com")
+
+
+def test_http_dropped_connection_is_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    import http.client as client
+
+    def dropped(*args: object, **kwargs: object) -> None:
+        raise client.RemoteDisconnected("closed")
+
+    monkeypatch.setattr(http.urllib.request, "urlopen", dropped)
+    result = http.status_is(_ctx(Path(".")), "http://127.0.0.1:8000/", 200)
+    assert not result.ok and result.detail == "HTTP 응답 없음"
+
+
+def test_all_checks_share_one_missing() -> None:
+    from quest.checks import MISSING, fs, shell
+
+    assert fs.MISSING is MISSING and github.MISSING is MISSING
+    assert http.MISSING is MISSING and shell.MISSING is MISSING

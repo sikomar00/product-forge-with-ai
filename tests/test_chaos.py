@@ -169,3 +169,54 @@ def test_no_exam_during_incident(game: Path, quest: Quest, answers: list[str]) -
     )
     code, out = quest("exam")
     assert code == 2 and "진행 중인 장애" in out
+
+
+def test_restore_handles_read_only_git_objects(tmp_path: Path) -> None:
+    """Windows에서 git은 .git/objects를 읽기 전용으로 둔다. 그래도 되돌릴 수 있어야 한다."""
+    import stat
+
+    work = tmp_path / "opsdesk"
+    objects = work / ".git" / "objects"
+    objects.mkdir(parents=True)
+    blob = objects / "ab12"
+    blob.write_text("blob", encoding="utf-8")
+    blob.chmod(stat.S_IREAD)
+    scenario = Chaos((".",), lambda ctx: None, lambda ctx: True, lambda ctx: None)
+    chaos.snapshot(_ctx(work), scenario, tmp_path / "snap")
+    (work / "added.txt").write_text("x", encoding="utf-8")
+    chaos.restore(tmp_path / "snap")
+    assert not (work / "added.txt").exists() and blob.read_text(encoding="utf-8") == "blob"
+
+
+def test_broken_snapshot_keeps_current_files(tmp_path: Path) -> None:
+    work = tmp_path / "opsdesk"
+    work.mkdir()
+    (work / "app.py").write_text("now", encoding="utf-8")
+    scenario = Chaos((".",), lambda ctx: None, lambda ctx: True, lambda ctx: None)
+    chaos.snapshot(_ctx(work), scenario, tmp_path / "snap")
+    (tmp_path / "snap" / "0.tar").write_bytes(b"not a tar file")
+    with pytest.raises(Exception):  # noqa: B017 - tarfile이 내는 오류 종류는 상관없다
+        chaos.restore(tmp_path / "snap")
+    assert (work / "app.py").read_text(encoding="utf-8") == "now"  # 지우고 실패하지 않는다
+
+
+def test_abort_still_restores_when_mission_left_content(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (game / "service.conf").write_text("mode=ok\n", encoding="utf-8")
+    answers.append("y")
+    quest("mission", "1-2")
+    from quest.commands import common
+
+    real_open = common.open_game
+
+    def without_incident_mission() -> object:
+        loaded = real_open()
+        missions = tuple(m for m in loaded.missions if m.id != "1-2")
+        return common.Game(loaded.conn, missions, loaded.cfg, loaded.quizzes, loaded.goals)
+
+    monkeypatch.setattr("quest.cli.open_game", without_incident_mission)
+    assert "콘텐츠에 없음" in quest("incident", "status")[1]
+    code, out = quest("incident", "abort")
+    assert code == 0 and (game / "service.conf").read_text(encoding="utf-8") == "mode=ok\n"
+    assert _incidents(game) == [("aborted", 0, 1, None)]

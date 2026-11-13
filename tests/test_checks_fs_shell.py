@@ -58,10 +58,44 @@ def test_fs_absolute_and_home_paths(work: Path, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_shell_runs_read_only_commands(work: Path) -> None:
+    assert shell.succeeds(_ctx(work), ["git", "--version"]).ok  # 실제 실행
+
+
+def _fake_output(monkeypatch: pytest.MonkeyPatch, code: int, stdout: str) -> None:
+    monkeypatch.setattr(external, "run", lambda args, cwd=None, timeout=60:
+                        subprocess.CompletedProcess(args, code, stdout, ""))
+
+
+def test_shell_output_equals_and_json(work: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = _ctx(work)
-    assert shell.succeeds(ctx, ["git", "--version"]).ok
-    assert shell.output_matches(ctx, ["git", "--version"], r"git version \d+").ok
-    assert not shell.output_matches(ctx, ["git", "--version"], "mercurial").ok
+    _fake_output(monkeypatch, 0, "644" + chr(10))  # 줄바꿈이 붙은 출력도 앞뒤 공백을 빼고 비교
+    assert shell.output_equals(ctx, ["stat", "-c", "%a", "a.sh"], "644").ok
+    assert not shell.output_equals(ctx, ["stat", "-c", "%a", "a.sh"], "755").ok
+    _fake_output(monkeypatch, 0, '[{"ifname": "eth0", "mtu": 1500}]')
+    assert shell.json_value(ctx, ["ip", "-j", "addr", "show"], (0, "mtu")) == 1500
+    assert shell.json_value(ctx, ["ip", "-j", "addr", "show"], (1,)) is shell.MISSING
+    _fake_output(monkeypatch, 0, "not json")
+    assert shell.json_value(ctx, ["lsblk", "-J"], ()) is shell.MISSING
+
+
+@pytest.mark.parametrize("args", [["date", "+%s"], ["date", "-u", "+%Y"], ["hostname"],
+                                  ["hostname", "-f"], ["journalctl", "-u", "nginx", "-n", "5"],
+                                  ["ss", "-tlnp"], ["systemctl", "is-active", "sshd"]])
+def test_allowed_read_only_forms(args: list[str]) -> None:
+    assert shell.is_read_only(args)
+
+
+@pytest.mark.parametrize("args", [["date", "-s", "2000-01-01"], ["hostname", "newname"],
+                                  ["ip", "addr", "add", "1.2.3.4/24", "dev", "eth0"],
+                                  ["ip", "-j", "route", "del", "default"],
+                                  ["journalctl", "--vacuum-size=1K"], ["ss", "-K", "dst", "x"]])
+def test_state_changing_forms_are_refused(args: list[str]) -> None:
+    assert not shell.is_read_only(args)
+
+
+def test_shell_without_workdir_is_env_error(tmp_path: Path) -> None:
+    with pytest.raises(CheckEnvError, match="작업 폴더가 없습니다"):
+        shell.run(_ctx(tmp_path / "not-cloned-yet"), ["git", "--version"])
 
 
 @pytest.mark.parametrize("args", [["rm", "-rf", "."], ["find", ".", "-delete"],
@@ -91,7 +125,7 @@ def test_ssh_runs_inside_lab_machine(work: Path, monkeypatch: pytest.MonkeyPatch
         return subprocess.CompletedProcess(args, 0, "active\n", "")
 
     monkeypatch.setattr(external, "run", fake)
-    assert ssh.output_matches(_ctx(work), ["systemctl", "is-active", "sshd"], "^active$").ok
+    assert ssh.output_equals(_ctx(work), ["systemctl", "is-active", "sshd"], "active").ok
     assert calls == [["orb", "-m", "pf-lab", "systemctl", "is-active", "sshd"]]
     with pytest.raises(ValueError):
         ssh.run(_ctx(work), ["reboot"])
