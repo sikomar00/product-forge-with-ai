@@ -5,6 +5,8 @@
 산출물 검사라서다. 면제된 미션은 quest mission <ID>로 직접 하면 통과로 바뀐다.
 """
 
+from quest.core.mission import MISSION_KEY
+
 # 영역 ID → 화면 이름. 이름과 순서는 design.md 2.2절(공개)을 따른다.
 AREAS = {
     "ai_collab": "AI 협업",
@@ -23,8 +25,13 @@ AREAS = {
 }
 
 
-def goal_errors(goals: object, mission_keys: set[str]) -> list[str]:
-    """content.toml [goals]의 모양 검사. 콘텐츠를 불러올 때 쓴다."""
+def goal_errors(goals: object) -> list[str]:
+    """content.toml [goals]의 모양 검사. 콘텐츠를 불러올 때 쓴다.
+
+    아직 만들지 않은 미션의 키도 미리 적을 수 있다(콘텐츠는 한 장씩 앞서 만든다). 그래야
+    영역이 일찍 ✅가 됐다가 미션이 늘면서 ⬜로 돌아가지 않는다. 그래서 엔진은 키 형식만 본다.
+    키가 실제로 생기는지는 콘텐츠 리포 테스트(keys.lock)가 맡는다.
+    """
     if not isinstance(goals, dict):
         return ["content.toml [goals]는 표여야 합니다"]
     errors = []
@@ -34,8 +41,8 @@ def goal_errors(goals: object, mission_keys: set[str]) -> list[str]:
         elif not isinstance(keys, list) or not keys:
             errors.append(f"[goals] {area}: 미션 키 목록이 비었거나 목록이 아닙니다")
         else:
-            errors += [f"[goals] {area}: 콘텐츠에 없는 미션 키 {k!r}" for k in keys
-                       if k not in mission_keys]
+            errors += [f"[goals] {area}: 미션 키 형식이 틀렸습니다 {k!r}" for k in keys
+                       if not isinstance(k, str) or MISSION_KEY.fullmatch(k) is None]
     return errors
 
 

@@ -5,11 +5,13 @@
 장애(chaos)·근본 원인(rca)·감사 상세 필드는 T1-3에서 더한다.
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+MISSION_KEY = re.compile(r"m_[0-9a-f]{8}")  # 바꾸지 않는 미션 키(ERD)
 KINDS = ("ops", "quiz", "predict", "drill", "decision", "audit", "incident", "boss")
 CHECK_KINDS = ("ops", "audit", "incident", "boss")  # 체크로 채점한다
 ITEM_KINDS = ("quiz", "predict", "drill", "decision")  # 문항으로 채점한다

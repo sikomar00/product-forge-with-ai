@@ -32,7 +32,22 @@ def find(missions: tuple[Mission, ...], mission_id: str) -> Mission | None:
 
 
 def statuses(conn: sqlite3.Connection) -> dict[str, str]:
-    return dict(conn.execute("SELECT mission_key, status FROM mission_progress"))
+    """미션 키 → 상태. 면제됐던 미션을 다시 하는 중이면 통과 전까지 'exempted'로 본다.
+
+    그래야 다시 하기가 현재 미션 흐름과 진행률을 가로채지 않고, 졸업 기준에도 아직 안 든다.
+    """
+    return dict(conn.execute(
+        "SELECT mission_key, CASE WHEN status = 'in_progress' AND EXISTS (SELECT 1 FROM events e"
+        " WHERE e.kind = 'mission_exempted' AND e.mission_key = mp.mission_key)"
+        " THEN 'exempted' ELSE status END FROM mission_progress mp"
+    ))
+
+
+def was_exempted(conn: sqlite3.Connection, key: str) -> bool:
+    """승급 시험으로 면제된 적이 있는 미션인지(다시 하기 판단용)."""
+    return conn.execute(
+        "SELECT 1 FROM events WHERE kind = 'mission_exempted' AND mission_key = ?", (key,)
+    ).fetchone() is not None
 
 
 def current(missions: tuple[Mission, ...], status: dict[str, str]) -> Mission | None:
@@ -110,15 +125,20 @@ def event(conn: sqlite3.Connection, kind: str, mission_key: str | None, at: str,
 def start(conn: sqlite3.Connection, m: Mission, at: str) -> bool:
     """미션을 처음 보여 줄 때 시작 기록을 만든다. 이미 시작했으면 False.
 
-    면제된 미션은 시작 시각 없이 생긴다. 학습자가 직접 다시 하면 그때 시작 시각을 채운다.
+    면제된 미션을 학습자가 직접 다시 하면 보통 진행 중 미션으로 되돌린다. 시작 시각·실패·힌트·
+    모범 답안을 새로 세고, 받은 보상(xp_awarded)만 그대로 둔다. 면제 이력은 이벤트에 남아 있다.
     """
     row = progress_row(conn, m.key)
-    if row is not None and row["started_at"] is not None:
+    if row is not None and row["status"] != "exempted":
         return False
     if row is not None:
-        conn.execute("UPDATE mission_progress SET started_at = ? WHERE mission_key = ?",
-                     (at, m.key))
-        event(conn, "mission_started", m.key, at)
+        conn.execute(
+            "UPDATE mission_progress SET status = 'in_progress', how = NULL, completed_at = NULL,"
+            " started_at = ?, first_check_at = NULL, fails = 0, hints_used = 0, solution_seen = 0"
+            " WHERE mission_key = ?",
+            (at, m.key),
+        )
+        event(conn, "mission_started", m.key, at, {"redo": 1})
         return True
     conn.execute(
         "INSERT INTO mission_progress (mission_key, display_id, chapter, status, started_at,"

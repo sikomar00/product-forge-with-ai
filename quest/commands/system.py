@@ -80,8 +80,10 @@ def cmd_reset(game: Game, rest: list[str]) -> int:
         return OK
     backup = _new_backup_path()
     target = sqlite3.connect(backup)
-    game.conn.backup(target)
-    target.close()
+    try:
+        game.conn.backup(target)
+    finally:
+        target.close()  # 실패해도 파일을 닫아야 Windows에서 지울 수 있다
     game.conn.close()  # Windows는 열린 파일을 지우지 못한다
     try:
         state.db_path().unlink()

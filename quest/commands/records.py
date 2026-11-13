@@ -27,7 +27,8 @@ def _chapter_list(game: Game, current: int) -> None:
             continue
         done, total = progress.chapter_counts(game.missions, status, ch)
         mark = "▶" if ch == current else " "
-        print(f" {mark} {ch:>2}장 {name:<14} {ui.bar(done, total, width=10) if total else '—'}")
+        progress_bar = ui.bar(done, total, width=10) if total else "—"
+        print(f" {mark} {ch:>2}장 {ui.pad(name, 18)} {progress_bar}")
 
 
 def _mission_list(game: Game, ch: int) -> None:
@@ -142,13 +143,16 @@ def cmd_goals(game: Game, rest: list[str]) -> int:
     for area, name in goals.AREAS.items():
         keys = game.goals.get(area)
         if not keys:
-            print(f"⬜ {name:<12} — 콘텐츠 준비 전")
+            print(f"⬜ {ui.pad(name, 12)} — 콘텐츠 준비 전")
             continue
         passed, exempted = goals.area_status(keys, status)
         met += passed == len(keys)
-        print(f"{'✅' if passed == len(keys) else '⬜'} {name:<12} {passed}/{len(keys)}")
+        pending = sum(k not in by_key for k in keys)  # 목록에는 있지만 아직 안 만든 미션
+        note = f" (아직 만들지 않은 미션 {pending}개)" if pending else ""
+        mark = "✅" if passed == len(keys) else "⬜"
+        print(f"{mark} {ui.pad(name, 12)} {passed}/{len(keys)}{note}")
         for key in exempted:
-            m_id = by_key[key].id
+            m_id = by_key[key].id if key in by_key else key
             print(f"     ↳ {m_id}은 면제됨. quest mission {m_id}로 직접 하면 충족")
     print(ui.paint(f"\n졸업 기준 {met}/{len(goals.AREAS)} 충족", "bold"))
     return OK

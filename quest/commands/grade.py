@@ -89,6 +89,10 @@ class Saved:
 def _pass_new(game: Game, m: Mission, at: str, saved: Saved) -> None:
     conn = game.conn
     row = progress.progress_row(conn, m.key)
+    if progress.was_exempted(conn, m.key):  # 다시 하기: 보상은 면제 때 받은 그대로(Spec)
+        progress.pass_mission(conn, m, row["xp_awarded"], at)
+        saved.redone = True
+        return
     saved.xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
     in_exam = progress.is_exam_target(conn, m.key)
     progress.pass_mission(conn, m, saved.xp, at)
@@ -104,13 +108,8 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     with state.transaction(conn):
         progress.start(conn, m, attempt.at)
         progress.record_attempt(conn, m, attempt)
-        status = progress.progress_row(conn, m.key)["status"]
-        if attempt.passed and status == "in_progress":
+        if attempt.passed and progress.progress_row(conn, m.key)["status"] == "in_progress":
             _pass_new(game, m, attempt.at, saved)
-        elif attempt.passed and status == "exempted":  # 보상은 면제 때 받은 그대로 둔다
-            xp = progress.progress_row(conn, m.key)["xp_awarded"]
-            progress.pass_mission(conn, m, xp, attempt.at)
-            saved.redone = True
         if attempt.passed and rebuilding:
             saved.rebuilt = rewards.rebuild_xp(m.xp)
             progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": saved.rebuilt})

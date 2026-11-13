@@ -21,6 +21,7 @@ from quest.core.mission import (
     ITEM_FORMATS,
     ITEM_KINDS,
     KINDS,
+    MISSION_KEY,
     SCAFFOLDS,
     TRACKS,
     Card,
@@ -28,7 +29,6 @@ from quest.core.mission import (
     Mission,
 )
 
-MISSION_KEY = re.compile(r"m_[0-9a-f]{8}")
 CARD_KEY = re.compile(r"c_[0-9a-f]{8}")
 CHAPTER_FILE = re.compile(r"ch(\d{2})_\w+\.py")
 DELAYED_QUIZ_SIZE = 10
@@ -70,7 +70,7 @@ def load_content(root: Path, engine_version: str | None = None) -> Content:
         errors += _collect(path, missions, quizzes)
     errors += validate(missions, quizzes)
     goals = manifest.get("goals", {})  # 콘텐츠는 장마다 늘어나므로 없는 영역은 '준비 전'이다
-    errors += goal_errors(goals, {m.key for m in missions})
+    errors += goal_errors(goals)
     if errors:
         raise EnvError("콘텐츠가 미션 스키마에 맞지 않습니다:\n" + "\n".join(errors))
     return Content(tuple(missions), quizzes, {area: tuple(keys) for area, keys in goals.items()})

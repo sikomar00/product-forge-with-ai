@@ -103,8 +103,12 @@ def lock_state(game: Game) -> tuple[bool, int, int]:
 
 
 def blocked_by_lock(game: Game, m: Mission) -> bool:
-    """새 미션을 시작하려는데 복습 잠금이면 안내하고 True. 진행 중·끝낸 미션은 막지 않는다."""
-    if progress.progress_row(game.conn, m.key) is not None:
+    """새 미션을 시작하려는데 복습 잠금이면 안내하고 True. 진행 중·끝낸 미션은 막지 않는다.
+
+    면제된 미션을 다시 시작하는 것도 새 작업이라 막는다.
+    """
+    row = progress.progress_row(game.conn, m.key)
+    if row is not None and row["status"] != "exempted":
         return False
     is_locked, due, threshold = lock_state(game)
     if is_locked:

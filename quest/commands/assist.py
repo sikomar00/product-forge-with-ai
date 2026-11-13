@@ -21,7 +21,15 @@ def _open_row(game: Game, rest: list[str]) -> tuple[Mission | None, dict | sqlit
     if progress.is_rebuild_target(game.conn, m.key):  # 답을 베껴 재구성 보상을 받지 못하게
         print("재구성 복습 중에는 힌트와 모범 답안을 볼 수 없습니다. 그만두려면 quest back")
         return None, NOT_STARTED, USAGE
-    return m, progress.progress_row(game.conn, m.key) or NOT_STARTED, OK
+    row = progress.progress_row(game.conn, m.key)
+    # 면제된 미션을 다시 하려는 것이면 새로 시작하는 미션처럼 본다(시작하면 기록이 새로 세진다)
+    return m, NOT_STARTED if row is None or row["status"] == "exempted" else row, OK
+
+
+def _reward_note(game: Game, m: Mission, xp_change: tuple[int, int]) -> str:
+    if progress.was_exempted(game.conn, m.key):
+        return "면제됐던 미션을 다시 하는 중이라 보상은 바뀌지 않습니다"
+    return f"보상이 {xp_change[0]} → {xp_change[1]} XP가 됩니다"
 
 
 def cmd_hint(game: Game, rest: list[str]) -> int:
@@ -37,7 +45,7 @@ def cmd_hint(game: Game, rest: list[str]) -> int:
         return OK
     before = rewards.mission_xp(m.xp, used, row["fails"], row["solution_seen"])
     after = rewards.mission_xp(m.xp, used + 1, row["fails"], row["solution_seen"])
-    question = f"💡 힌트 {used + 1}단계를 열면 보상이 {before} → {after} XP가 됩니다. 열까요?"
+    question = f"💡 힌트 {used + 1}단계를 엽니다. {_reward_note(game, m, (before, after))}. 열까요?"
     if not confirm(question):
         print("열지 않았습니다.")
         return OK
@@ -62,7 +70,7 @@ def cmd_solution(game: Game, rest: list[str]) -> int:
     if row["status"] == "in_progress" and not row["solution_seen"]:
         before = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], False)
         after = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], True)
-        question = (f"📖 모범 답안을 보면 보상이 {before} → {after} XP가 되고, "
+        question = (f"📖 모범 답안을 봅니다. {_reward_note(game, m, (before, after))}. "
                     "재구성 복습에 먼저 나옵니다. 볼까요?")
         if not confirm(question):
             print("보지 않았습니다.")
