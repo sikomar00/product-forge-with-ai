@@ -2,7 +2,7 @@
 
 콘텐츠 모듈은 이 파일의 클래스로 MISSIONS와 DELAYED_QUIZ를 만든다.
 2026-11-13 결정: 개념·용법·도메인·도구 지도는 cards 하나로 합치고, 문항 형식은 4가지로 나눈다.
-장애(chaos)·근본 원인(rca)·감사 상세 필드는 T1-3에서 더한다.
+T1-3에서 장애(chaos)·근본 원인 퀴즈(rca)를 더했다. 감사 미션은 체크와 설명 게이트로 채점한다.
 """
 
 import re
@@ -88,6 +88,21 @@ class Item:
 
 
 @dataclass(frozen=True)
+class Chaos:
+    """장애 시나리오(콘텐츠 구역, Spec "장애 주입").
+
+    targets: 주입 허용 확인·스냅샷 대상. 경로(작업 폴더 기준, ~ 가능) 또는 'lab:<머신 이름>'.
+    inject는 장애를 만들고, verify는 장애가 실제로 걸렸는지 보고, cleanup은 시나리오가 따로
+    남긴 것(프로세스·VM 안 변경 등)을 치운다. 파일·폴더는 엔진이 스냅샷으로 되돌린다.
+    """
+
+    targets: tuple[str, ...]
+    inject: Callable[[Ctx], None]
+    verify: Callable[[Ctx], bool]
+    cleanup: Callable[[Ctx], None]
+
+
+@dataclass(frozen=True)
 class Mission:
     key: str  # m_ + 소문자 16진수 8자리. 바꾸지 않는다
     id: str  # 화면 번호(예: "5-8")
@@ -114,3 +129,5 @@ class Mission:
     solve: Callable[[Ctx], None] | None = None  # 자동 플레이스루용 모범 답안 적용
     requires_lab: bool = False
     badge: str | None = None
+    chaos: Chaos | None = None  # 장애 미션(incident)의 시나리오
+    rca: tuple[Item, ...] = ()  # 장애 미션의 근본 원인 퀴즈. 복구한 뒤 묻는다

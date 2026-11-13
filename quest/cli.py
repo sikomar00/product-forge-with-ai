@@ -8,6 +8,7 @@ from quest.commands.assist import cmd_hint, cmd_solution
 from quest.commands.common import ENV, OK, USAGE, Game, open_game
 from quest.commands.doctor import cmd_doctor
 from quest.commands.grade import cmd_check
+from quest.commands.incident import cmd_incident
 from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
 from quest.commands.records import cmd_goals, cmd_map, cmd_stats
@@ -59,6 +60,7 @@ COMMANDS = {
     "doctor": Command(cmd_doctor, "", "장비 점검: 도구 설치와 허용 버전", needs_game=False),
     "update": Command(cmd_update, "", "콘텐츠 받기·갱신", needs_game=False),
     "selftest": Command(cmd_selftest, "", "받은 콘텐츠의 테스트를 이 엔진으로", needs_game=False),
+    "incident": Command(cmd_incident, "status|abort", "장애 보기·중단(원상 복구)", max_args=1),
     "report": Command(cmd_report, "[ID]", "미션 오판 신고(콘텐츠 리포 이슈)", max_args=1),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }

@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from quest.commands.common import OK, Game, line, lock_view, mode_target, target
+from quest.commands.incident import offer_injection
 from quest.core import progress, review, state, ui
 from quest.core.mission import CHECK_KINDS, Mission
 
@@ -61,5 +62,7 @@ def cmd_mission(game: Game, rest: list[str]) -> int:
     for card in sorted(m.cards, key=lambda c: c.kind != "tool_map"):  # 도구 지도 카드 먼저
         print(f"\n{'🗺️' if card.kind == 'tool_map' else '🃏'} {card.front}\n   {card.back}")
     print(f"\n작업 위치: {_where(m, game.cfg)}")
+    if m.kind == "incident" and progress.progress_row(game.conn, m.key)["status"] != "passed":
+        return offer_injection(game, m)
     print(ui.paint("다음: quest check", "dim"))
     return OK

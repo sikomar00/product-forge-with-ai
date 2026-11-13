@@ -195,13 +195,16 @@ def _mission_errors(m: Mission) -> list[str]:
          "모범 답안은 난독화해야 합니다"),
         (m.kind in CHECK_KINDS and not m.checks, f"{m.kind} 유형은 체크가 있어야 합니다"),
         (m.kind in ITEM_KINDS and not m.items, f"{m.kind} 유형은 문항이 있어야 합니다"),
+        (m.kind == "incident" and m.chaos is None, "장애 미션은 chaos 시나리오가 있어야 합니다"),
+        (m.chaos is not None and not m.chaos.targets, "chaos.targets가 비었습니다"),
     ]
     errors = [message for broken, message in rules if broken]
     errors += _numbering("체크", [c.no for c in m.checks])
     errors += _numbering("문항", [i.no for i in m.items])
     errors += _numbering("설명 게이트 문항", [i.no for i in m.explain])
+    errors += _numbering("근본 원인 문항", [i.no for i in m.rca])
     errors += [e for c in m.cards for e in _card_errors(c)]
-    errors += [e for i in (*m.items, *m.explain) for e in _item_errors(i)]
+    errors += [e for i in (*m.items, *m.explain, *m.rca) for e in _item_errors(i)]
     return errors
 
 

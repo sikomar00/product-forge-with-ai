@@ -1,9 +1,11 @@
 """IA-3 채점: 체크형·문항형 미션, 설명 게이트, 보상(M0-07, M0-10, M0-11, Spec "채점")."""
 
+import shutil
 from dataclasses import dataclass, field, replace
 
 from quest.commands.ask import Answered, ask_items
 from quest.commands.common import ENV, FAIL, OK, USAGE, Game, line, make_ctx, target, versions
+from quest.commands.incident import snapshot_folder
 from quest.core import badges, progress, review, rewards, state, ui
 from quest.core.mission import CHECK_KINDS, CheckEnvError, Ctx, Mission, Result
 from quest.kinds import ops
@@ -67,17 +69,35 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
             return None
         responses = _responses("mission", answered)
         passed = all(a.correct for a in answered)
-    if passed and not done and m.ai in GATE_AI and m.explain:
-        head = f"\n{ui.AI_TAGS[m.ai]} 설명 게이트: 만든 결과를 내가 설명할 수 있는지"
-        print(ui.paint(head, "bold"))
-        gate = ask_items(m.explain)
-        if gate is None:
+    rca_correct = None
+    for head, items, context in _gates(m) if passed and not done else ():
+        print(ui.paint(f"\n{head}", "bold"))
+        answered = ask_items(items)
+        if answered is None:
             return None
-        responses += _responses("explain_gate", gate)
-        passed = all(a.correct for a in gate)
+        responses += _responses(context, answered)
+        passed = all(a.correct for a in answered)
+        if items is m.rca:
+            rca_correct = passed
         if not passed:
-            print("설명 게이트에 틀린 문항이 있어 아직 통과가 아닙니다.")
-    return progress.Attempt(checks, passed, versions(game.conn), responses)
+            print("틀린 문항이 있어 아직 통과가 아닙니다.")
+            break
+    return progress.Attempt(checks, passed, versions(game.conn), responses,
+                            rca_correct=rca_correct)
+
+
+def _gates(m: Mission) -> list[tuple[str, tuple, str]]:
+    """체크를 통과한 뒤 묻는 것: 장애의 근본 원인 퀴즈, 🤝·🚀의 설명 게이트.
+
+    (제목, 문항, 응답 기록 맥락) 목록이다.
+    """
+    gates = []
+    if m.kind == "incident" and m.rca:
+        gates.append(("🔎 근본 원인: 무엇이 왜 망가졌는지", m.rca, "mission"))
+    if m.ai in GATE_AI and m.explain:
+        gates.append((f"{ui.AI_TAGS[m.ai]} 설명 게이트: 만든 결과를 내가 설명할 수 있는지",
+                      m.explain, "explain_gate"))
+    return gates
 
 
 def _finish_exam(tx: state.Tx, game: Game, boss: Mission) -> list[tuple[Mission, int]]:
@@ -97,6 +117,7 @@ class Saved:
     rebuilt: int | None = None  # 재구성 복습 보상
     redone: bool = False  # 면제됐던 미션을 직접 통과(보상 없음, 졸업 기준 인정)
     badges: list[str] = field(default_factory=list)  # 이번에 새로 얻은 배지 키
+    recovered_ref: str | None = None  # 이번에 복구한 장애의 스냅샷(지운다)
 
 
 def _pass_new(tx: state.Tx, game: Game, m: Mission) -> Saved:
@@ -117,11 +138,20 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     """시도를 한 트랜잭션으로 기록한다."""
     saved = Saved()
     rebuilding = progress.is_rebuild_target(game.conn, m.key)
+    incident = progress.incident_row(game.conn)
+    # 복구 체크를 모두 통과하면 복구다. 근본 원인 퀴즈는 따로 센다.
+    recovered = (incident is not None and incident["mission_key"] == m.key
+                 and bool(attempt.checks) and all(attempt.checks))
     with state.transaction(game.conn) as tx:
         progress.start(tx, m)
         progress.record_attempt(tx, m, attempt)
+        if recovered:
+            progress.close_incident(tx, incident, "recovered")
+            saved.recovered_ref = incident["snapshot_ref"]
+        if attempt.rca_correct is not None:
+            progress.record_rca(tx, m.key, attempt.rca_correct)
         if attempt.passed and progress.progress_row(tx.conn, m.key)["status"] == "in_progress":
-            saved = _pass_new(tx, game, m)
+            saved = replace(_pass_new(tx, game, m), recovered_ref=saved.recovered_ref)
             saved.badges = badges.award(tx, m)
         if attempt.passed and rebuilding:
             saved.rebuilt = rewards.rebuild_xp(m.xp)
@@ -135,12 +165,18 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if m is None:
         return code
     row = progress.progress_row(game.conn, m.key)
+    if m.kind == "incident" and not progress.incident_started(game.conn, m.key):
+        print("장애가 아직 시작되지 않았습니다. quest mission으로 장애를 시작하세요.")
+        return USAGE
     # 면제된 미션을 직접 다시 할 때는 설명 게이트도 다시 본다
     attempt = _grade(game, m, done=row is not None and row["status"] == "passed")
     if attempt is None:
         print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
         return USAGE
     saved = _save(game, m, attempt)
+    if saved.recovered_ref:
+        shutil.rmtree(snapshot_folder(saved.recovered_ref), ignore_errors=True)
+        print(ui.paint("✅ 장애를 복구했습니다.", "green"))
     if attempt.error:
         return ENV
     if not attempt.passed:

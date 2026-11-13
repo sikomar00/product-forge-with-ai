@@ -7,6 +7,8 @@ NO_EXAM_CHAPTERS = (0, 17)  # 0장은 환경을 만들고, 17장은 처음부터
 
 
 def _exam_refusal(game: Game, boss_status: str | None) -> str | None:
+    if progress.active_incident(game.conn):  # 면제가 진행 중인 장애를 남겨 두지 않게
+        return "진행 중인 장애가 있습니다. 먼저 복구하거나 quest incident abort"
     if boss_status in progress.DONE:
         return "이 장의 보스는 이미 통과했습니다."
     if lock_state(game)[0]:
