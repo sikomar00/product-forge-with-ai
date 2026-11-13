@@ -179,7 +179,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 이벤트 22종(ERD)을 해당 시점에 남긴다. 값(`payload`)에는 키·숫자만 넣는다.
 - `quest stats`: 장별 진행과 예상·실제 시간(`v_mission_time`), 힌트 사용률(`v_hint_rate`), 확신했는데 틀린 비율(`v_overconfidence`), MTTR(`v_mttr`). `--sql`은 위의 읽기 전용 연결을 쓴다.
 
-### 졸업 기준 `quest goals` (IA-10, 2026-11-13 결정)
+### 졸업 기준 `quest goals` (IA-10, 2026-11-13 결정, ADR-0010)
 
 - 콘텐츠의 `content.toml`에 `[goals]` 표를 두고, 영역 ID(`ai_collab`·`planning`·`design`·`backend`·`async`·`frontend`·`testing`·`git_cicd`·`deploy`·`ops`·`security`·`ai_product`·`analytics`)마다 미션 키 목록을 적는다. 그 미션을 모두 **통과**하면 충족이다. 영역 이름·순서는 design.md 2.2절이고 엔진(`core/goals.py`)에 둔다.
 - 승급 시험으로 면제된 미션은 인정하지 않는다(졸업 기준은 실제 산출물 검사). 화면이 "면제됨 → `quest mission <ID>`로 직접 하면 충족"을 안내한다.
@@ -272,7 +272,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 머신은 장이 끝나도 지우지 않는다. 지울지는 학습자가 정한다.
 - `quest doctor`가 머신 상태도 보여 준다.
 
-### 리뷰봇 (M1-07)
+### 리뷰봇 (M1-07, ADR-0011)
 
 - 2-4의 리뷰봇은 GitHub Actions가 아니라 게임이 로컬에서 `gh api`로 학습자 PR에 리뷰 코멘트를 단다. 지적 목록은 콘텐츠에 있으므로 공개 리포인 `opsdesk`에 올라가지 않는다. 코멘트는 `🤖 리뷰봇:`으로 시작하고 학습자 계정으로 달린다.
 - (T1-5 구현, `quest/labs/reviewbot.py`) 지적 규칙은 `ReviewRule(path 글롭, pattern 정규식, message)`이다. PR diff에서 새로 더한 줄만 보고, 규칙마다 파일당 첫 줄에만 단다. 리뷰 하나(`event=COMMENT`)에 줄 코멘트를 모아 `gh api POST repos/<리포>/pulls/<번호>/reviews`로 단다. (2026-11-13 결정) 규칙(`Mission.review`)이 있는 미션의 `quest check` 직전에 채점과 따로 돈다. 작업 폴더 리포에서 **학습자 본인이 연**(`--author @me`) 가장 최근 PR에, **학습자 계정이 단** 리뷰봇 리뷰가 아직 없을 때만 한 번 단다(기록 없이 PR의 리뷰로 판단, 모든 쪽을 본다). 공개 리포라 남의 PR에 학습자 계정으로 코멘트가 달리지 않게 한다(보안 검토 반영). 리뷰봇이 실패해도 채점은 한다. 체크는 읽기 전용이라 체크 안에서는 달지 않는다(ADR-0004).

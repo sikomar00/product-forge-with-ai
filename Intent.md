@@ -23,6 +23,7 @@
 ### 5. 열린 질문과 진행
 - 지금 방침(2026-11-13 사용자): Windows에서 할 수 있는 것을 모두 하고 맥으로 넘어간다. M0 게이트 승인은 아직 받지 않았다(숫자·QA는 `docs/qa-guide.md`).
 - 다음 작업(맥): T1-4 OrbStack 랩(미확인 3건 + ssh 체크의 `orb -m` 형식), 랩 VM 대상 실제 주입, 사용자 QA U1~U9(`docs/qa-guide.md`), M0 게이트 승인. 그다음 콘텐츠(T1-6~, 클라우드 세션, 별도 리포). `core/progress.py`는 장애 함수를 `core/incidents.py`로 나눠 298줄이다.
+- 결정 기록(2026-11-13): ADR-0010 졸업 기준은 통과한 미션으로(면제 불인정), ADR-0011 리뷰봇은 quest check 직전에 한 번. GLOSSARY에 면제·졸업 기준 영역·리뷰봇을 더하고 랩 항목의 '리뷰봇 워크플로'를 고쳤다. Windows 먼저 진행(Plan v1.1)과 장애 스냅샷 방식(Spec)은 되돌리기 쉬워 ADR로 만들지 않았다.
 - Windows에서 할 엔진 작업은 끝났다(2026-11-13): T1-5 리뷰봇(quest check 직전에 학습자 본인 PR에 한 번), M1 코드 리뷰 15건·보안 검토 1건 반영. pytest 294/294(Windows·CI ubuntu·macos).
 - T1-1~T1-3 완료(2026-11-13, Windows): 체크 프리미티브 6종(읽기 전용 시험), `quest selftest`·`quest report`, 장애 주입 안전장치(허용 대상·스냅샷·abort·복구·MTTR·근본 원인 퀴즈).
 - T1-0 완료(2026-11-13): `quest doctor`(엔진 도구 + content.toml [tools] 0~4장), `quest update`(첫 클론, requires_engine 먼저 확인 후 ff 합치기, 바뀐 장·새 미션 수만 표시, content_updated 기록), `quest/external.py`(외부 명령 경계). 이 PC의 doctor는 orb(맥 전용)만 ❌.
