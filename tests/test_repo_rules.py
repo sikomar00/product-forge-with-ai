@@ -1,5 +1,6 @@
-"""리포 규칙 점검: 코드 파일은 500줄을 넘지 않는다(rules/code.md, M0 게이트)."""
+"""리포 규칙 점검(M0 게이트): 500줄 넘는 코드 파일 0개, 엔진 리포의 콘텐츠 파일 0개."""
 
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,3 +18,17 @@ def test_no_code_file_over_500_lines() -> None:
         and (count := len(path.read_text(encoding="utf-8").splitlines())) > MAX_LINES
     ]
     assert too_long == []
+
+
+def test_no_content_files_outside_fake_fixture() -> None:
+    """실제 콘텐츠는 비공개 콘텐츠 리포에만 둔다(ADR-0009). 가짜 픽스처만 예외다."""
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    found = [
+        name
+        for name in tracked
+        if "content" in Path(name).parts[:-1]
+        and not name.startswith("tests/fixtures/fake_content/")
+    ]
+    assert found == []
