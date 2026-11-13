@@ -1,6 +1,6 @@
 # Intent
 
-## 현재 작업: M0 · 엔진 (Plan v1.1 2026-11-13, 착수 전)
+## 현재 작업: M0 · 엔진 (Plan v1.1 2026-11-13, T0-1 완료)
 
 ### 1. 문제
 하네스 1~7단계 문서는 승인됐지만 게임 코드는 아직 없다. 0장을 시작하려면(W1) M0 게이트 통과와 0장 부분(0장 콘텐츠, `quest doctor`, `quest update`)이 필요하다(`docs/PLAN.md` 결정 1).
@@ -21,8 +21,9 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-1 리포 기본(사용자 + AI, Windows). 사용자 작업 1·2는 끝났다(PR #2 머지, Windows에 uv 0.13.6·Python 3.14.10). 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
-- 확인할 것: CI 액션의 릴리스 날짜(T0-1), 맥 uv Python 3.14의 SQLite 버전(T0-2, Windows는 3.53.1), pandas 3.0.3과 S1 코드의 호환(T0-8), OrbStack 미확인 3건(T1-4), GitHub 러너의 systemd(T1-6).
+- 다음 작업: T0-2 상태 DB(사용자 + AI, Windows). 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
+- T0-1 완료(2026-11-13, 브랜치 `engine/windows-setup`): CI가 ubuntu·macos에서 초록(ruff, pytest 1개, DDL 67/67). Python은 uv 관리 빌드 3.14.10으로 고정해 세 환경 모두 SQLite 3.53.1이다. 빌드 백엔드로 uv_build 0.13.6을 썼다(uv와 같은 버전).
+- 확인할 것: 맥 로컬에서 SQLite 3.53.1인지 확인(CI macos 러너에서는 3.53.1), pandas 3.0.3과 S1 코드의 호환(T0-8), OrbStack 미확인 3건(T1-4), GitHub 러너의 systemd(T1-6).
 - 실측 기록: T0-4를 마치면 채운다.
 
 ## 완료한 작업
