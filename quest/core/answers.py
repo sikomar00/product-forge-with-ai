@@ -8,7 +8,7 @@
 import re
 
 from quest.core import spoiler
-from quest.core.mission import Item
+from quest.core.mission import Card, Item
 
 FORMAT_GUIDE = {
     "choice": "번호 하나",
@@ -54,3 +54,13 @@ def answer_errors(item: Item) -> list[str]:
         "order": sorted(nums) == list(range(1, size + 1)),
     }
     return [] if valid.get(item.kind, True) else [f"{item.kind} 정답이 보기 번호와 맞지 않습니다"]
+
+
+def card_correct(card: Card, response: str) -> bool:
+    """객관식 카드는 고른 보기가 뒷면과 같은지, 정규식 카드는 choices의 정규식 하나라도 맞는지."""
+    if card.grading == "regex":
+        return any(re.search(pattern, response.strip()) for pattern in card.choices)
+    numbers = _numbers(response)
+    if numbers is None or len(numbers) != 1 or not 1 <= numbers[0] <= len(card.choices):
+        return False
+    return card.choices[numbers[0] - 1] == card.back

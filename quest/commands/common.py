@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 
-from quest.core import config, content, progress, state, ui
+from quest.core import config, content, progress, review, state, ui
 from quest.core.mission import Ctx, Mission
 
 OK, FAIL, USAGE, ENV = 0, 1, 2, 3  # Spec "화면과 종료 코드"
@@ -52,7 +52,14 @@ def make_ctx(cfg: dict) -> Ctx:
 
 
 def target(game: Game, rest: list[str]) -> tuple[Mission | None, int]:
-    """명령이 다룰 미션. ID가 없으면 현재 미션. 못 고르면 (None, 종료 코드)."""
+    """명령이 다룰 미션. ID가 없으면 현재 미션. 못 고르거나 복습 잠금이면 (None, 종료 코드)."""
+    found, code = _pick(game, rest)
+    if found is not None and blocked_by_lock(game, found):
+        return None, USAGE
+    return found, code
+
+
+def _pick(game: Game, rest: list[str]) -> tuple[Mission | None, int]:
     if rest:
         found = progress.find(game.missions, rest[0])
         if found is None:
@@ -63,6 +70,20 @@ def target(game: Game, rest: list[str]) -> tuple[Mission | None, int]:
     if found is None:
         print("🎉 모든 코어 미션을 마쳤습니다.")
     return found, OK
+
+
+def blocked_by_lock(game: Game, m: Mission) -> bool:
+    """새 미션을 시작하려는데 복습 잠금이면 안내하고 True. 진행 중·끝낸 미션은 막지 않는다."""
+    if progress.progress_row(game.conn, m.key) is not None:
+        return False
+    threshold = review.lock_threshold(game.cfg)
+    with state.transaction(game.conn):
+        is_locked = review.sync_lock(game.conn, threshold, state.now_utc())
+    if is_locked:
+        due = progress.due_cards(game.conn)
+        print(f"🔒 복습 잠금: 만기 카드가 {due}장이라 새 미션을 열지 않습니다.")
+        print(f"quest review로 {threshold}장 아래로 줄이면 바로 풀립니다.")
+    return is_locked
 
 
 def line(m: Mission) -> str:

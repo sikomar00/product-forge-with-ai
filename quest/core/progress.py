@@ -6,9 +6,10 @@
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from quest.core.mission import Mission
+from quest.core.state import format_utc, parse_utc
 
 # 장 이름은 design.md 5절에 공개돼 있다.
 CHAPTERS = (
@@ -144,11 +145,11 @@ def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None
         " WHERE mission_key = ?",
         (how, at, xp, m.key),
     )
-    due = datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC) + CARD_FIRST_DUE
+    due = format_utc(parse_utc(at) + CARD_FIRST_DUE)
     conn.executemany(
         "INSERT OR IGNORE INTO cards (card_key, mission_key, kind, added_at, due_at)"
         " VALUES (?, ?, ?, ?, ?)",
-        [(c.key, m.key, c.kind, at, due.strftime("%Y-%m-%dT%H:%M:%SZ")) for c in m.cards],
+        [(c.key, m.key, c.kind, at, due) for c in m.cards],
     )
     event(conn, "mission_passed", m.key, at, {"xp": xp})
 

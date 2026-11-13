@@ -3,7 +3,7 @@
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
 from quest.core.config import EnvError, home
@@ -13,9 +13,20 @@ SCHEMA_VERSION = "1.0"
 SCHEMA_FILE = Path(__file__).parent / "schema" / "v1_0.sql"
 
 
+TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"  # DB에 넣는 시각(UTC ISO-8601, 초 단위)
+KST = timezone(timedelta(hours=9), "KST")  # 화면·날짜 계산용. 한국은 서머타임이 없다
+
+
 def now_utc() -> str:
-    """DB에 넣는 시각 형식(UTC ISO-8601, 초 단위)."""
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime(TIME_FORMAT)
+
+
+def parse_utc(at: str) -> datetime:
+    return datetime.strptime(at, TIME_FORMAT).replace(tzinfo=UTC)
+
+
+def format_utc(moment: datetime) -> str:
+    return moment.astimezone(UTC).strftime(TIME_FORMAT)
 
 
 def check_sqlite_version(version: str = sqlite3.sqlite_version) -> None:

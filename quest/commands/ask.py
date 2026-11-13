@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from quest.core import answers, ui
-from quest.core.mission import Item
+from quest.core.mission import Card, Item
 
 CONFIDENCE = "확신도 1(찍음) 2(반반) 3(확신)"
 
@@ -51,3 +51,26 @@ def ask_items(items: tuple[Item, ...]) -> list[Answered] | None:
         print(ui.paint("✅ 맞았습니다", "green") if correct else ui.paint("❌ 틀렸습니다", "red"))
         result.append(Answered(item, correct, confidence))
     return result
+
+
+def ask_card(card: Card) -> tuple[bool, int | None] | None:
+    """복습 카드 하나를 묻고 (정답 여부, 확신도)를 돌려준다. 입력이 끝나면 None.
+
+    자가 채점 카드는 뒷면을 보여 준 뒤 맞았는지 묻고, 확신도는 묻지 않는다(Spec "복습").
+    """
+    print(f"\n🃏 {card.front}")
+    if card.grading == "self":
+        if read("Enter를 누르면 뒷면을 봅니다 ") is None:
+            return None
+        print(f"   {card.back}")
+        answer = read("맞았나요? [y/N] ")
+        return None if answer is None else (answer.strip().lower() in ("y", "yes", "ㅛ"), None)
+    for number, choice in enumerate(card.choices if card.grading == "choice" else (), 1):
+        print(f"   {number}) {choice}")
+    response = read("번호 하나: " if card.grading == "choice" else "답을 입력: ")
+    if response is None or (confidence := ask_confidence()) is None:
+        return None
+    correct = answers.card_correct(card, response)
+    print(ui.paint("✅ 맞았습니다" if correct else "❌ 틀렸습니다", "green" if correct else "red"))
+    print(f"   정답: {card.back}")
+    return correct, confidence

@@ -197,12 +197,21 @@ def _mission_errors(m: Mission) -> list[str]:
     return errors
 
 
+def _patterns_compile(patterns: tuple[str, ...]) -> bool:
+    """정규식 카드는 choices에 허용 정규식을 하나 이상 둔다(2026-11-13 결정)."""
+    try:
+        return bool(patterns) and all(re.compile(p) for p in patterns)
+    except re.error:
+        return False
+
+
 def _card_errors(c: Card) -> list[str]:
     rules = [
         (CARD_KEY.fullmatch(c.key) is None, "카드 키 형식이 틀렸습니다"),
         (c.kind not in CARD_KINDS, f"알 수 없는 카드 종류: {c.kind!r}"),
         (c.grading not in CARD_GRADINGS, f"알 수 없는 채점 방식: {c.grading!r}"),
         (c.grading == "choice" and c.back not in c.choices, "객관식 카드의 뒷면이 보기에 없습니다"),
+        (c.grading == "regex" and not _patterns_compile(c.choices), "정규식 카드의 보기 오류"),
     ]
     return [f"카드 {c.key!r}: {message}" for broken, message in rules if broken]
 
