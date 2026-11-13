@@ -2,3 +2,7 @@
 requires_engine = ">=0.1,<0.2"
 
 [tools]
+
+[goals]  # 졸업 기준 영역 → 모두 통과해야 충족인 미션 키
+planning = ["m_f0000001", "m_f0000002"]
+testing = ["m_f0000011"]

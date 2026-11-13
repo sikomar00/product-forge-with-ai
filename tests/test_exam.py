@@ -105,3 +105,36 @@ def test_no_exam_during_review_lock(ch1: Path, quest: Quest) -> None:
     cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
     code, out = quest("exam")
     assert code == 2 and "복습 잠금 중에는 시험을" in out
+
+
+def test_exempted_mission_can_be_redone_for_goals(
+    ch1: Path, quest: Quest, answers: list[str]
+) -> None:
+    quest("exam")
+    (ch1 / "boss.txt").write_text("x", encoding="utf-8")
+    quest("check")  # 1-1, 1-2 면제
+    out = " ".join(quest("goals")[1].split())  # 칸 맞춤 공백은 보지 않는다
+    assert "⬜ 테스트 0/1" in out and "1-1은 면제됨" in out
+    code, out = quest("mission", "1-1")
+    assert code == 0
+    (ch1 / "fixed.txt").write_text("x", encoding="utf-8")
+    answers.append("2")  # 🚀 설명 게이트를 다시 본다
+    code, out = quest("check", "1-1")
+    assert code == 0 and "졸업 기준에 인정됩니다" in out and "설명 게이트" in out
+    row = _db(ch1).execute(
+        "SELECT status, how, xp_awarded, started_at IS NOT NULL FROM mission_progress"
+        " WHERE display_id = '1-1'"
+    ).fetchone()
+    assert row == ("passed", "normal", 8, 1)  # 보상은 면제 때 받은 50% 그대로
+    assert "✅ 테스트 1/1" in " ".join(quest("goals")[1].split())
+
+
+def test_exam_boss_with_solution_still_completes_by_exam(
+    ch1: Path, quest: Quest, answers: list[str]
+) -> None:
+    quest("exam")
+    answers.append("y")
+    quest("solution")  # 보스 모범 답안(시험 중에도 볼 수 있다, 보상 20%)
+    (ch1 / "boss.txt").write_text("x", encoding="utf-8")
+    assert quest("check")[0] == 0
+    assert _completed_via(_db(ch1)) == "exam"

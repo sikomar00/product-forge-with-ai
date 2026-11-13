@@ -77,15 +77,18 @@ def test_stats_sql_cannot_write(game: Path, quest: Quest, answers: list[str], sq
     assert conn.execute("SELECT count(*) FROM events").fetchone()[0] > 0
 
 
-def test_readonly_connection_cannot_write_attached_file(game: Path, quest: Quest) -> None:
+def test_readonly_connection_refuses_attach(game: Path, quest: Quest) -> None:
     quest()
     conn = readonly_connect()
-    conn.execute(f"ATTACH '{(game.parent / 'other.db').as_posix()}' AS o")  # 붙이는 것은 된다
-    with pytest.raises(sqlite3.OperationalError, match="readonly"):
-        conn.execute("CREATE TABLE o.t (a)")
+    other = game.parent / "other.db"
+    with pytest.raises(sqlite3.DatabaseError, match="not authorized"):
+        conn.execute(f"ATTACH '{other.as_posix()}' AS o")
+    assert not other.exists()  # ATTACH가 빈 파일을 만들지도 못한다
     with pytest.raises(sqlite3.OperationalError, match="readonly"):
         conn.execute("DELETE FROM main.events")
     conn.close()
+    code, out = quest("stats", "--sql", f"ATTACH '{other.as_posix()}' AS o")
+    assert code == 2 and "SQL 오류" in out and not other.exists()
 
 
 def test_stats_usage(game: Path, quest: Quest) -> None:
@@ -179,3 +182,86 @@ def test_reset_needs_exact_phrase(
 def test_help_explains_restore(quest: Quest) -> None:
     code, out = quest("help")
     assert code == 0 and "백업에서 되돌리기" in out and "quest status --json" in out
+
+
+def test_status_and_home_do_not_write(game: Path, quest: Quest) -> None:
+    """읽기 명령은 기록을 남기지 않는다. AI 튜터가 status를 자주 읽어도 DB를 잠그지 않게."""
+    quest()
+    cfg = game.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
+    assert json.loads(quest("status", "--json")[1])["review_lock"] is True
+    assert "복습 잠금" in quest()[1]
+    assert _db(game).execute("SELECT count(*) FROM events").fetchone() == (0,)
+    quest("mission")  # 새 미션 시작에서 잠금이 걸리면 그때 기록한다
+    rows = _db(game).execute("SELECT kind, payload FROM events").fetchall()
+    assert rows == [("review_lock_on", '{"due": 0}')]
+
+
+def test_reset_refused_during_incident(game: Path, quest: Quest, answers: list[str]) -> None:
+    _pass_first(game, quest, answers)
+    _db(game).execute(
+        "INSERT INTO incidents (mission_key, source, status, injected_at, snapshot_ref)"
+        " VALUES ('m_f0000001', 'mission', 'active', '2026-01-01T00:00:00Z', 'snap-1')"
+    )
+    answers.append("초기화")
+    code, out = quest("reset")
+    assert code == 2 and "incident abort" in out
+    assert not (game.parent / "home" / "backups").exists()
+
+
+def test_two_resets_in_one_second_keep_both_backups(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from quest.commands import system
+
+    class FrozenNow:
+        @staticmethod
+        def now(tz: object) -> object:
+            from datetime import datetime as real
+
+            return real(2026, 11, 13, 12, 0, 0, tzinfo=tz)
+
+    monkeypatch.setattr(system, "datetime", FrozenNow)
+    _pass_first(game, quest, answers)
+    answers.extend(["초기화", "초기화"])
+    quest("reset")
+    quest("reset")
+    names = sorted(p.name for p in (game.parent / "home" / "backups").iterdir())
+    assert names == ["state-20261113T120000Z-2.db", "state-20261113T120000Z.db"]
+    first = sqlite3.connect(game.parent / "home" / "backups" / names[1])
+    assert first.execute("SELECT xp_awarded FROM mission_progress").fetchone() == (12,)
+    first.close()
+
+
+# ───────────── IA-10 졸업 기준 ─────────────
+
+
+def test_goals_counts_passed_missions_only(game: Path, quest: Quest, answers: list[str]) -> None:
+    code, out = quest("goals")
+    out = " ".join(out.split())  # 칸 맞춤 공백은 보지 않는다
+    assert code == 0 and "⬜ 기획 0/2" in out and "⬜ 설계 — 콘텐츠 준비 전" in out
+    assert "졸업 기준 0/13 충족" in out
+    _pass_first(game, quest, answers)
+    answers.extend(["1", "3"])
+    quest("check", "0-2")
+    out = " ".join(quest("goals")[1].split())
+    assert "✅ 기획 2/2" in out and "졸업 기준 1/13 충족" in out
+
+
+@pytest.mark.parametrize(
+    ("goals", "reason"),
+    [
+        ('[goals]\nmagic = ["m_f0000001"]', "알 수 없는 영역"),
+        ('[goals]\nplanning = ["m_00000000"]', "콘텐츠에 없는 미션 키"),
+        ("[goals]\nplanning = []", "목록이 비었거나"),
+    ],
+)
+def test_bad_goals_table_is_refused(tmp_path: Path, goals: str, reason: str) -> None:
+    import shutil
+
+    root = Path(shutil.copytree(FAKE, tmp_path / "c"))
+    manifest = root / "content.toml"
+    text = manifest.read_text(encoding="utf-8")
+    manifest.write_text(text[: text.index("[goals]")] + goals + "\n", encoding="utf-8")
+    with pytest.raises(content.EnvError, match=reason):
+        content.load_content(root)
