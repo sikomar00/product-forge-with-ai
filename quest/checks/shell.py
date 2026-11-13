@@ -5,7 +5,9 @@
 """
 
 import json
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 from quest import external
 from quest.checks import MISSING, dig, verdict
@@ -22,12 +24,13 @@ READ_ONLY = (
     ("systemctl", "is-failed"), ("systemctl", "show"), ("journalctl",), ("crontab", "-l"),
     ("sudo", "-l"),
 )
-# 허용한 명령이라도 이 인자로 시작하면 상태를 바꾼다
-FORBIDDEN_ARGS = {
+# 허용한 명령이라도 이 긴 옵션으로 시작하거나, 이 짧은 옵션 글자가(붙여 써도) 있으면 상태를 바꾼다
+FORBIDDEN_LONG = {
     "journalctl": ("--vacuum", "--rotate", "--flush", "--sync", "--relinquish",
                    "--smart-relinquish", "--setup-keys", "--update-catalog"),
-    "ss": ("-K", "--kill"),
+    "ss": ("--kill",),
 }
+FORBIDDEN_SHORT = {"ss": "K"}  # ss -tK처럼 붙여 써도 잡는다
 # 인자에 따라 바꾸는 명령이 되는 것: 허용하는 인자만 받는다
 ARG_RULES = {
     "date": lambda rest: all(a.startswith("+") or a in ("-u", "--utc") for a in rest),
@@ -42,29 +45,46 @@ class Output:
     stdout: str
 
 
+def _forbidden(command: str, arg: str) -> bool:
+    if any(arg.startswith(f) for f in FORBIDDEN_LONG.get(command, ())):
+        return True
+    short = arg.startswith("-") and not arg.startswith("--")
+    return short and any(letter in arg[1:] for letter in FORBIDDEN_SHORT.get(command, ""))
+
+
 def is_read_only(args: list[str]) -> bool:
+    if not args:
+        return False
     if len(args) == 2 and args[1] in VERSION_FLAGS:
         return True
     if args[0] in ARG_RULES:
         return ARG_RULES[args[0]](args[1:])
-    forbidden = FORBIDDEN_ARGS.get(args[0], ())
-    if any(a.startswith(f) for a in args[1:] for f in forbidden):
+    if any(_forbidden(args[0], a) for a in args[1:]):
         return False
     return any(tuple(args[: len(prefix)]) == prefix for prefix in READ_ONLY)
 
 
 def check_read_only(args: list[str]) -> None:
     if not is_read_only(args):
-        raise ValueError(f"체크는 읽기 전용 명령만 실행합니다: {' '.join(args[:3])}")
+        raise ValueError(f"체크는 읽기 전용 명령만 실행합니다: {' '.join(args[:3]) or '(빈 명령)'}")
 
 
 def run(ctx: Ctx, args: list[str]) -> Output:
-    """작업 폴더에서 읽기 전용 명령을 실행한다. 폴더·프로그램이 없으면 CheckEnvError."""
+    """작업 폴더에서 읽기 전용 명령을 실행한다. 프로그램이 없으면 CheckEnvError.
+
+    작업 폴더가 아직 없으면(리포를 만들기 전) 빈 임시 폴더에서 돌린다. which·uname 같은 명령은
+    그대로 되고, 상대 경로를 보는 명령은 '없음'으로 실패해 다른 폴더에서 잘못 통과하지 않는다.
+    """
     check_read_only(args)
-    if not ctx.workdir.is_dir():  # 다른 폴더에서 돌아 엉뚱하게 통과하지 않게
-        raise CheckEnvError(f"작업 폴더가 없습니다: {ctx.workdir}. 설정의 repo_path를 확인하세요.")
+    if ctx.workdir.is_dir():
+        return _run_in(args, ctx.workdir)
+    with tempfile.TemporaryDirectory(prefix="quest-empty-") as empty:
+        return _run_in(args, Path(empty))
+
+
+def _run_in(args: list[str], cwd: Path) -> Output:
     try:
-        done = external.run(args, cwd=ctx.workdir)
+        done = external.run(args, cwd=cwd)
     except EnvError as exc:
         raise CheckEnvError(str(exc)) from exc
     return Output(done.returncode, done.stdout)

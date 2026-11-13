@@ -8,6 +8,7 @@ import http.client
 import json
 import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
@@ -24,6 +25,8 @@ class Response:
 
 
 def get(ctx: Ctx, url: str) -> Response:
+    if urllib.parse.urlparse(url).scheme not in ("http", "https"):  # 콘텐츠 작성 오류는 드러낸다
+        raise ValueError(f"http 체크의 주소는 http:// 또는 https://로 시작해야 합니다: {url}")
     request = urllib.request.Request(url, headers={"User-Agent": "quest-check"})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT_SEC) as resp:  # noqa: S310 - GET만
@@ -45,7 +48,8 @@ def status_is(ctx: Ctx, url: str, expected: int) -> Result:
 
 def json_value(ctx: Ctx, url: str, keys: tuple[str | int, ...] = ()) -> object:
     """응답 JSON에서 keys 경로의 값. 응답이 없거나 JSON이 아니거나 키가 없으면 MISSING."""
+    body = get(ctx, url).body  # URL 형식 오류(ValueError)는 콘텐츠 작성 오류라 그대로 올린다
     try:
-        return dig(json.loads(get(ctx, url).body), keys)
+        return dig(json.loads(body), keys)
     except ValueError:
         return MISSING

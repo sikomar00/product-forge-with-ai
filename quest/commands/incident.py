@@ -27,22 +27,29 @@ def _mission_of(game: Game, row: sqlite3.Row) -> Mission | None:
 
 
 def _restore_and_close(game: Game, row: sqlite3.Row) -> None:
-    """시나리오 cleanup(프로세스 정지 등)을 먼저 하고 스냅샷으로 되돌린 뒤 aborted로 닫는다.
+    """시나리오 cleanup(프로세스 정지·VM 안 변경 되돌리기)을 먼저 하고, 스냅샷으로 파일을 되돌린 뒤
+    aborted로 닫는다.
 
-    cleanup이 실패해도 파일은 되돌린다. 되돌리기가 실패하면 장애를 닫지 않고 스냅샷 위치를 알린다.
+    cleanup이나 되돌리기가 하나라도 실패하면 장애를 닫지 않고 스냅샷도 남긴다. 그래야 원인을
+    고친 뒤 다시 abort할 수 있다(CLAUDE.md "abort로 원상 복구할 수 있어야 한다").
     """
     folder, m = snapshot_folder(row["snapshot_ref"]), _mission_of(game, row)
+    cleanup_error = None
     try:
         if m is not None and m.chaos is not None:
             m.chaos.cleanup(make_ctx(game.cfg))
-    except Exception as exc:  # 시나리오 오류: 알리고 파일 되돌리기는 계속한다
-        print(ui.paint(f"⚠️ 시나리오 정리 중 오류({type(exc).__name__}). 파일은 되돌립니다.",
-                       "yellow"))
+    except Exception as exc:  # 시나리오 오류: 파일 되돌리기는 계속하고, 끝에 알리고 멈춘다
+        cleanup_error = exc
     try:
         chaos.restore(folder)
     except OSError as exc:
         raise config.EnvError(f"되돌리지 못했습니다({exc}). 스냅샷은 {folder}에 남아 있습니다."
                               " 다른 프로그램이 파일을 쓰고 있지 않은지 보고 다시 abort") from exc
+    if cleanup_error is not None:
+        raise config.EnvError(
+            f"파일은 되돌렸지만 시나리오 정리가 실패했습니다({type(cleanup_error).__name__})."
+            " 장애는 진행 중으로 남깁니다. 랩·도구 상태를 확인하고 다시 quest incident abort"
+        ) from cleanup_error
     with state.transaction(game.conn) as tx:
         incidents.close_incident(tx, row, "aborted")
     shutil.rmtree(folder, ignore_errors=True)

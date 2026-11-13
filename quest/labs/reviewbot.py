@@ -32,18 +32,19 @@ class Finding:
 
 def added_lines(diff: str) -> list[tuple[str, int, str]]:
     """unified diff에서 새로 더한 줄: (파일, 새 파일 줄 번호, 내용)."""
-    found, path, line, previous = [], None, 0, ""
+    found, path, line, in_header = [], None, 0, True
     for raw in diff.splitlines():
-        if raw.startswith("+++ ") and previous.startswith("--- "):  # 더한 줄 '++ …'와 구분
+        if raw.startswith("diff --git "):
+            in_header = True
+        elif in_header and raw.startswith("+++ "):  # 머리줄: 다음 '@@' 전까지만
             path = raw[4:].removeprefix("b/") if raw[4:] != "/dev/null" else None
         elif hunk := _HUNK.match(raw):
-            line = int(hunk[1])
-        elif raw.startswith("+") and path is not None:
+            line, in_header = int(hunk[1]), False
+        elif not in_header and raw.startswith("+") and path is not None:
             found.append((path, line, raw[1:]))
             line += 1
-        elif raw.startswith(" "):
+        elif not in_header and raw.startswith(" "):
             line += 1
-        previous = raw
     return found
 
 
@@ -115,11 +116,13 @@ def _already_reviewed(repo: str, pr: int) -> bool:
         raise EnvError(f"PR #{pr}의 리뷰를 읽지 못했습니다.")
     me = _me()
     rows = [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
-    return any(login == me and body.startswith(PREFIX) for login, body in rows)
+    return any(login == me and (body or "").startswith(PREFIX) for login, body in rows)
 
 
 def run_once(workdir: Path, rules: tuple[ReviewRule, ...]) -> str | None:
     """열린 PR에 리뷰봇 리뷰가 아직 없으면 단다. 단 경우 화면 안내를, 아니면 None을 돌려준다."""
+    if not workdir.is_dir():  # 아직 리포를 만들기 전
+        return None
     repo = _repo(workdir)
     pr = _latest_open_pr(repo) if repo else None
     if pr is None or _already_reviewed(repo, pr):

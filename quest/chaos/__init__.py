@@ -72,17 +72,29 @@ def snapshot(ctx: Ctx, chaos: Chaos, folder: Path) -> None:
     (folder / MANIFEST).write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
 
 
-def _make_writable(func: object, path: str, exc: BaseException) -> None:
-    """Windows에서 git이 읽기 전용으로 둔 파일(.git/objects)도 지울 수 있게 한다."""
-    os.chmod(path, stat.S_IWRITE)
-    func(path)
+def _unlock(path: Path) -> None:
+    """지우기 전에 소유자 읽기·쓰기(폴더는 열기까지)를 연다. 링크는 따라가지 않는다.
+
+    Windows는 git이 .git/objects를 읽기 전용으로 두고, 장애 시나리오는 chmod 000을 걸 수 있다.
+    """
+    if path.is_symlink():
+        return
+    if path.is_dir():
+        os.chmod(path, stat.S_IRWXU)
+        for child in path.iterdir():
+            _unlock(child)
+    else:
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def _remove(path: Path) -> None:
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path, onexc=_make_writable)
-    elif path.exists() or path.is_symlink():
-        path.chmod(stat.S_IWRITE)
+    if path.is_symlink():  # 링크 자체만 지운다. 가리키는 파일의 권한은 건드리지 않는다
+        path.unlink()
+    elif path.is_dir():
+        _unlock(path)
+        shutil.rmtree(path)
+    elif path.exists():
+        _unlock(path)
         path.unlink()
 
 
@@ -97,6 +109,7 @@ def restore(folder: Path) -> None:
         if not entry["existed"]:
             _remove(path)
             continue
+        path.parent.mkdir(parents=True, exist_ok=True)  # 시나리오가 상위 폴더까지 지웠을 수 있다
         staging = Path(tempfile.mkdtemp(prefix=".quest-restore-", dir=path.parent))
         try:
             with tarfile.open(folder / entry["archive"]) as archive:

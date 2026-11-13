@@ -166,8 +166,9 @@ def _run_reviewbot(game: Game, m: Mission) -> None:
     """채점 직전에 리뷰봇을 한 번 돌린다. 리뷰봇이 실패해도 채점은 한다."""
     try:
         message = reviewbot.run_once(make_ctx(game.cfg).workdir, m.review)
-    except EnvError as exc:
-        print(ui.paint(f"⚠️ 리뷰봇을 돌리지 못했습니다: {exc}", "yellow"))
+    except Exception as exc:  # 리뷰봇은 채점의 부속이라 어떤 오류도 채점을 막지 않는다
+        reason = str(exc) if isinstance(exc, EnvError) else type(exc).__name__
+        print(ui.paint(f"⚠️ 리뷰봇을 돌리지 못했습니다: {reason}", "yellow"))
         return
     if message:
         print(ui.paint(message, "bold"))

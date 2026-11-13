@@ -30,7 +30,13 @@ version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -t. -k1,1n -k2,2n -k3,3n 
 check_system() {
   if [ "$(uname -s)" = "Darwin" ]; then ok "macOS"; else no "macOS가 아님($(uname -s)) — 플레이는 맥에서" "맥에서 다시 실행"; fi
   if [ "$(uname -m)" = "arm64" ]; then ok "Apple Silicon"; else note "Apple Silicon이 아님($(uname -m)). OrbStack 랩은 동작하지만 확인한 환경은 아니다"; fi
-  if xcode-select -p >/dev/null 2>&1; then ok "Xcode Command Line Tools"; else no "Xcode Command Line Tools 없음" "xcode-select --install"; fi
+  if xcode-select -p >/dev/null 2>&1; then
+    ok "Xcode Command Line Tools"
+  else
+    no "Xcode Command Line Tools 없음" "xcode-select --install"
+    # CLT가 없는 맥의 /usr/bin/git은 실행만 해도 설치 창을 띄운다. 이 스크립트는 읽기만 하므로 부르지 않는다.
+    [ "$(uname -s)" = "Darwin" ] && NO_CLT=1
+  fi
 }
 
 check_tool() {  # check_tool <이름> <설치 명령> <버전 명령...>
@@ -45,7 +51,11 @@ check_tool() {  # check_tool <이름> <설치 명령> <버전 명령...>
 
 check_tools() {
   check_tool "Homebrew" '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' brew --version
-  check_tool "git" "brew install git" git --version
+  if [ -n "${NO_CLT:-}" ] && [ "$(command -v git)" = "/usr/bin/git" ]; then
+    note "git은 Xcode Command Line Tools를 설치한 뒤에 점검한다"
+  else
+    check_tool "git" "brew install git" git --version
+  fi
   check_tool "gh" "brew install gh" gh --version
   if command -v gh >/dev/null 2>&1; then
     if gh auth status >/dev/null 2>&1; then ok "gh 로그인"; else no "gh 로그인 안 됨" "gh auth login"; fi
@@ -63,6 +73,10 @@ check_tools() {
 
 check_engine_repo() {  # check_engine_repo <위치>
   local repo=$1
+  if [ -n "${NO_CLT:-}" ] && [ "$(command -v git)" = "/usr/bin/git" ]; then
+    note "엔진 리포는 Xcode Command Line Tools를 설치한 뒤에 점검한다"
+    return
+  fi
   if [ ! -d "$repo/.git" ] || [ ! -f "$repo/pyproject.toml" ]; then
     no "엔진 리포 없음($repo)" "git clone https://github.com/sikomar00/product-forge-with-ai.git"
     return
@@ -80,6 +94,10 @@ check_engine_repo() {  # check_engine_repo <위치>
 
 check_s1() {
   local s1=${QUEST_S1_REPO:-}
+  if [ -n "${NO_CLT:-}" ] && [ "$(command -v git)" = "/usr/bin/git" ]; then
+    note "S1 리포는 Xcode Command Line Tools를 설치한 뒤에 점검한다"
+    return
+  fi
   if [ -z "$s1" ]; then
     no "QUEST_S1_REPO 없음(S1 회귀 시험용)" "git clone https://github.com/sikomar00/sailingstone-quest.git ~/s1-sailingstone-quest && export QUEST_S1_REPO=~/s1-sailingstone-quest  (~/.zshrc에도)"
     return
