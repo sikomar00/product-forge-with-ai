@@ -10,7 +10,7 @@ from importlib.metadata import version
 from pathlib import Path
 from types import ModuleType
 
-from quest.core import spoiler
+from quest.core import answers, spoiler
 from quest.core.config import EnvError
 from quest.core.mission import (
     AI_MODES,
@@ -213,7 +213,10 @@ def _item_errors(i: Item) -> list[str]:
         (not spoiler.decodes(i.answer), "정답은 난독화(obf1:)해야 합니다"),
         (i.kind in ("choice", "multi", "order") and not i.choices, "보기가 없습니다"),
     ]
-    return [f"문항 {i.no}: {message}" for broken, message in rules if broken]
+    errors = [message for broken, message in rules if broken]
+    if not errors:
+        errors = answers.answer_errors(i)
+    return [f"문항 {i.no}: {message}" for message in errors]
 
 
 def _quiz_errors(items: tuple[Item, ...]) -> list[str]:

@@ -1,0 +1,90 @@
+"""IA-3 채점: 체크형·문항형 미션, 설명 게이트, 보상(M0-07, M0-10, M0-11, Spec "채점")."""
+
+from quest.commands.ask import Answered, ask_items
+from quest.commands.common import FAIL, OK, USAGE, Game, line, make_ctx, target, versions
+from quest.core import progress, rewards, state, ui
+from quest.core.mission import CHECK_KINDS, Mission, Result
+from quest.kinds import ops
+
+# 실패한 체크의 설명이 결함·원인 위치를 알려 주므로 숨긴다(IA 결정 4)
+HIDE_FAILED_DETAIL = ("audit", "incident")
+GATE_AI = ("pair", "delegate")  # 🤝·🚀 미션은 통과하면 설명 게이트를 묻는다
+
+
+def _show_results(m: Mission, results: list[Result], traps: list[str]) -> None:
+    if m.kind in HIDE_FAILED_DETAIL:
+        print(f"체크 {sum(r.ok for r in results)}/{len(results)} 통과")
+        for check, r in zip(m.checks, results, strict=True):
+            if not r.ok:
+                print(f"   ↳ {check.hint}")
+    else:
+        for check, r in zip(m.checks, results, strict=True):
+            mark = ui.paint("✅", "green") if r.ok else ui.paint("❌", "red")
+            print(f"{mark} {check.no}. {check.desc}" + (f" — {r.detail}" if r.detail else ""))
+            if not r.ok:
+                print(f"   ↳ {check.hint}")
+    for message in traps:
+        print(ui.paint(f"💡 {message}", "yellow"))
+
+
+def _responses(context: str, answered: list[Answered]) -> list[tuple[str, int, bool, int | None]]:
+    return [(context, a.item.no, a.correct, a.confidence) for a in answered]
+
+
+def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
+    """채점해서 Attempt를 만든다. 문항 답을 끝까지 받지 못하면 None."""
+    checks, responses = [], []
+    if m.kind in CHECK_KINDS:
+        results, traps = ops.grade(m, make_ctx(game.cfg))  # 읽기 전용이라 트랜잭션 밖에서 돌린다
+        _show_results(m, results, traps)
+        checks = [r.ok for r in results]
+        passed = all(checks)
+    else:
+        answered = ask_items(m.items)
+        if answered is None:
+            return None
+        responses = _responses("mission", answered)
+        passed = all(a.correct for a in answered)
+    if passed and not done and m.ai in GATE_AI and m.explain:
+        head = f"\n{ui.AI_TAGS[m.ai]} 설명 게이트: 만든 결과를 내가 설명할 수 있는지"
+        print(ui.paint(head, "bold"))
+        gate = ask_items(m.explain)
+        if gate is None:
+            return None
+        responses += _responses("explain_gate", gate)
+        passed = all(a.correct for a in gate)
+        if not passed:
+            print("설명 게이트에 틀린 문항이 있어 아직 통과가 아닙니다.")
+    return progress.Attempt(checks, passed, state.now_utc(), versions(game.conn), responses)
+
+
+def cmd_check(game: Game, rest: list[str]) -> int:
+    m, code = target(game, rest)
+    if m is None:
+        return code
+    row = progress.progress_row(game.conn, m.key)
+    attempt = _grade(game, m, done=row is not None and row["status"] != "in_progress")
+    if attempt is None:
+        print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
+        return USAGE
+    conn, xp = game.conn, None
+    with state.transaction(conn):
+        progress.start(conn, m, attempt.at)
+        progress.record_attempt(conn, m, attempt)
+        row = progress.progress_row(conn, m.key)
+        if attempt.passed and row["status"] == "in_progress":
+            xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
+            progress.pass_mission(conn, m, xp, attempt.at)
+    if not attempt.passed:
+        print(ui.paint("다시 quest check로 처음부터 다시 봅니다. 막히면 quest hint", "dim"))
+        return FAIL
+    if xp is None:
+        print("✅ 이미 끝낸 미션입니다. 보상은 다시 주지 않습니다.")
+        return OK
+    one_shot = row["fails"] == 0 and row["hints_used"] == 0 and not row["solution_seen"]
+    print(ui.paint(f"🎉 통과! +{xp} XP" + (" (원샷 보너스)" if one_shot else ""), "green"))
+    if m.cards:
+        print(f"🃏 카드 {len(m.cards)}장이 복습 덱에 들어갔습니다.")
+    nxt = progress.current(game.missions, progress.statuses(conn))
+    print(f"다음 미션: {line(nxt)} → quest mission" if nxt else "🎉 모든 코어 미션을 마쳤습니다.")
+    return OK

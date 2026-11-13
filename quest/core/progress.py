@@ -5,6 +5,7 @@
 
 import json
 import sqlite3
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from quest.core.mission import Mission
@@ -97,25 +98,42 @@ def start(conn: sqlite3.Connection, m: Mission, at: str) -> bool:
     return True
 
 
-def record_attempt(conn: sqlite3.Connection, m: Mission, results: list[bool], at: str,
-                   versions: tuple[str, str]) -> str:
-    """quest check 한 번을 남기고 결과(pass·fail)를 돌려준다. 체크는 번호와 통과 여부만 쓴다."""
-    outcome = "pass" if all(results) else "fail"
+@dataclass(frozen=True)
+class Attempt:
+    """quest check 한 번의 결과. 내용(설명·정답)이 아니라 번호와 정오만 담는다."""
+
+    checks: list[bool]  # 체크 번호 순서의 통과 여부. 문항형 미션은 빈 목록
+    passed: bool
+    at: str
+    versions: tuple[str, str]  # (엔진, 콘텐츠)
+    responses: list[tuple[str, int, bool, int | None]] = field(default_factory=list)
+    # (context: mission·explain_gate, 문항 번호, 정답 여부, 확신도)
+
+
+def record_attempt(conn: sqlite3.Connection, m: Mission, attempt: Attempt) -> int:
+    """시도 한 번과 문항 응답을 남기고 attempt_id를 돌려준다. 실패는 진행 중일 때만 센다."""
     row = progress_row(conn, m.key)
     if row["first_check_at"] is None:
         conn.execute("UPDATE mission_progress SET first_check_at = ? WHERE mission_key = ?",
-                     (at, m.key))
-        event(conn, "first_check", m.key, at)
-    if outcome == "fail" and row["status"] == "in_progress":
+                     (attempt.at, m.key))
+        event(conn, "first_check", m.key, attempt.at)
+    if not attempt.passed and row["status"] == "in_progress":
         conn.execute("UPDATE mission_progress SET fails = fails + 1 WHERE mission_key = ?",
                      (m.key,))
-    checks = [{"no": no, "ok": ok} for no, ok in enumerate(results, 1)]
-    conn.execute(
+    checks = [{"no": no, "ok": ok} for no, ok in enumerate(attempt.checks, 1)]
+    cursor = conn.execute(
         "INSERT INTO attempts (mission_key, display_id, mode, at, outcome, check_results,"
         " engine_version, content_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (m.key, m.id, mode(conn), at, outcome, json.dumps(checks), *versions),
+        (m.key, m.id, mode(conn), attempt.at, "pass" if attempt.passed else "fail",
+         json.dumps(checks), *attempt.versions),
     )
-    return outcome
+    conn.executemany(
+        "INSERT INTO responses (attempt_id, chapter, context, item_no, correct, confidence, at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(cursor.lastrowid, m.ch, context, no, int(ok), conf, attempt.at)
+         for context, no, ok, conf in attempt.responses],
+    )
+    return cursor.lastrowid
 
 
 def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None:

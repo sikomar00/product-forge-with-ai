@@ -6,7 +6,8 @@ from dataclasses import dataclass
 
 from quest.commands.assist import cmd_hint, cmd_solution
 from quest.commands.common import ENV, OK, USAGE, Game, open_game
-from quest.commands.play import cmd_check, cmd_home, cmd_mission
+from quest.commands.grade import cmd_check
+from quest.commands.play import cmd_home, cmd_mission
 from quest.core import config, ui
 
 
