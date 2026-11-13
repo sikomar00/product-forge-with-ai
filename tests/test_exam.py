@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from conftest import Quest
+from conftest import Quest, lock_with_one_due_card
 
 CH0_CORE = ("m_f0000001", "m_f0000002", "m_f0000003", "m_f0000004", "m_f0000005")
 
@@ -101,8 +101,7 @@ def test_chapter_completes_only_when_core_missions_are_done(
 
 
 def test_no_exam_during_review_lock(ch1: Path, quest: Quest) -> None:
-    cfg = ch1.parent / "config.toml"
-    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
+    lock_with_one_due_card(ch1)
     code, out = quest("exam")
     assert code == 2 and "복습 잠금 중에는 시험을" in out
 
@@ -173,8 +172,7 @@ def test_redo_does_not_take_over_current_mission(ch1: Path, quest: Quest) -> Non
 
 def test_redo_start_respects_review_lock(ch1: Path, quest: Quest) -> None:
     _exempt_chapter_one(ch1, quest)
-    cfg = ch1.parent / "config.toml"
-    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
+    lock_with_one_due_card(ch1)
     code, out = quest("mission", "1-1")
     assert code == 2 and "새 미션을 열지 않습니다" in out
 

@@ -5,7 +5,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-from conftest import FAKE, Quest
+from conftest import FAKE, Quest, lock_with_one_due_card
 
 from quest.commands.records import readonly_connect
 from quest.core import content, spoiler
@@ -186,15 +186,13 @@ def test_help_explains_restore(quest: Quest) -> None:
 
 def test_status_and_home_do_not_write(game: Path, quest: Quest) -> None:
     """읽기 명령은 기록을 남기지 않는다. AI 튜터가 status를 자주 읽어도 DB를 잠그지 않게."""
-    quest()
-    cfg = game.parent / "config.toml"
-    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
+    lock_with_one_due_card(game)
     assert json.loads(quest("status", "--json")[1])["review_lock"] is True
     assert "복습 잠금" in quest()[1]
     assert _db(game).execute("SELECT count(*) FROM events").fetchone() == (0,)
     quest("mission")  # 새 미션 시작에서 잠금이 걸리면 그때 기록한다
     rows = _db(game).execute("SELECT kind, payload FROM events").fetchall()
-    assert rows == [("review_lock_on", '{"due": 0}')]
+    assert rows == [("review_lock_on", '{"due": 1}')]
 
 
 def test_reset_refused_during_incident(game: Path, quest: Quest, answers: list[str]) -> None:

@@ -34,6 +34,28 @@ def game(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return work
 
 
+def lock_with_one_due_card(game: Path) -> None:
+    """만기 카드 1장(0-3의 카드)과 잠금 기준 1로 복습 잠금을 건다."""
+    import sqlite3
+
+    from quest.core import state
+
+    state.connect(game.parent / "home" / "state.db").close()
+    conn = sqlite3.connect(game.parent / "home" / "state.db", isolation_level=None)
+    conn.execute(
+        "INSERT OR IGNORE INTO mission_progress (mission_key, display_id, chapter, status, how,"
+        " started_at, completed_at, est_min, ai_tag) VALUES ('m_f0000003', '0-3', 0, 'passed',"
+        " 'normal', '2026-01-01T00:00:00Z', '2026-01-01T00:10:00Z', 5, 'solo')"
+    )
+    conn.execute(
+        "INSERT INTO cards (card_key, mission_key, kind, added_at, due_at) VALUES"
+        " ('c_f0000003', 'm_f0000003', 'usage', '2026-01-01T00:00:00Z', '2020-01-01T00:00:00Z')"
+    )
+    conn.close()
+    cfg = game.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 1"), encoding="utf-8")
+
+
 @pytest.fixture
 def quest(capsys: pytest.CaptureFixture[str]) -> Quest:
     """quest 명령을 실행하고 (종료 코드, 화면 출력)을 돌려준다."""
