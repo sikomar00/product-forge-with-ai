@@ -32,9 +32,9 @@ class Finding:
 
 def added_lines(diff: str) -> list[tuple[str, int, str]]:
     """unified diff에서 새로 더한 줄: (파일, 새 파일 줄 번호, 내용)."""
-    found, path, line = [], None, 0
+    found, path, line, previous = [], None, 0, ""
     for raw in diff.splitlines():
-        if raw.startswith("+++ "):
+        if raw.startswith("+++ ") and previous.startswith("--- "):  # 더한 줄 '++ …'와 구분
             path = raw[4:].removeprefix("b/") if raw[4:] != "/dev/null" else None
         elif hunk := _HUNK.match(raw):
             line = int(hunk[1])
@@ -43,6 +43,7 @@ def added_lines(diff: str) -> list[tuple[str, int, str]]:
             line += 1
         elif raw.startswith(" "):
             line += 1
+        previous = raw
     return found
 
 
@@ -92,17 +93,29 @@ def _repo(workdir: Path) -> str | None:
 
 
 def _latest_open_pr(repo: str) -> int | None:
-    done = external.run(["gh", "pr", "list", "-R", repo, "--state", "open", "--limit", "1",
-                         "--json", "number", "-q", ".[0].number"])
+    """학습자 본인이 연 PR 가운데 가장 최근 것. 공개 리포라 남의 PR에 코멘트를 달지 않게 한다."""
+    done = external.run(["gh", "pr", "list", "-R", repo, "--state", "open", "--author", "@me",
+                         "--limit", "1", "--json", "number", "-q", ".[0].number"])
     text = done.stdout.strip()
     return int(text) if done.returncode == 0 and text.isdecimal() else None
 
 
+def _me() -> str:
+    done = external.run(["gh", "api", "user", "-q", ".login"])
+    if done.returncode != 0 or not done.stdout.strip():
+        raise EnvError("GitHub 로그인을 확인하지 못했습니다. gh auth status")
+    return done.stdout.strip()
+
+
 def _already_reviewed(repo: str, pr: int) -> bool:
-    done = external.run(["gh", "api", f"repos/{repo}/pulls/{pr}/reviews"])
+    """학습자 계정이 단 리뷰봇 리뷰가 이미 있는지(리뷰가 많아도 모든 쪽을 본다)."""
+    done = external.run(["gh", "api", "--paginate", f"repos/{repo}/pulls/{pr}/reviews",
+                         "-q", ".[] | [.user.login, .body] | @json"])
     if done.returncode != 0:
         raise EnvError(f"PR #{pr}의 리뷰를 읽지 못했습니다.")
-    return any(r.get("body", "").startswith(PREFIX) for r in json.loads(done.stdout or "[]"))
+    me = _me()
+    rows = [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
+    return any(login == me and body.startswith(PREFIX) for login, body in rows)
 
 
 def run_once(workdir: Path, rules: tuple[ReviewRule, ...]) -> str | None:

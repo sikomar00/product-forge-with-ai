@@ -21,15 +21,28 @@ def snapshot_folder(ref: str) -> Path:
     return config.home() / "snapshots" / ref
 
 
-def _mission_of(game: Game, row: sqlite3.Row) -> Mission:
-    return next(m for m in game.missions if m.key == row["mission_key"])
+def _mission_of(game: Game, row: sqlite3.Row) -> Mission | None:
+    """장애의 미션. 콘텐츠에서 사라졌으면 None(그래도 파일은 되돌릴 수 있어야 한다)."""
+    return next((m for m in game.missions if m.key == row["mission_key"]), None)
 
 
 def _restore_and_close(game: Game, row: sqlite3.Row) -> None:
-    """스냅샷으로 되돌리고 시나리오 cleanup 뒤 aborted로 닫는다(중단·주입 실패 공통)."""
-    folder = snapshot_folder(row["snapshot_ref"])
-    chaos.restore(folder)
-    _mission_of(game, row).chaos.cleanup(make_ctx(game.cfg))
+    """시나리오 cleanup(프로세스 정지 등)을 먼저 하고 스냅샷으로 되돌린 뒤 aborted로 닫는다.
+
+    cleanup이 실패해도 파일은 되돌린다. 되돌리기가 실패하면 장애를 닫지 않고 스냅샷 위치를 알린다.
+    """
+    folder, m = snapshot_folder(row["snapshot_ref"]), _mission_of(game, row)
+    try:
+        if m is not None and m.chaos is not None:
+            m.chaos.cleanup(make_ctx(game.cfg))
+    except Exception as exc:  # 시나리오 오류: 알리고 파일 되돌리기는 계속한다
+        print(ui.paint(f"⚠️ 시나리오 정리 중 오류({type(exc).__name__}). 파일은 되돌립니다.",
+                       "yellow"))
+    try:
+        chaos.restore(folder)
+    except OSError as exc:
+        raise config.EnvError(f"되돌리지 못했습니다({exc}). 스냅샷은 {folder}에 남아 있습니다."
+                              " 다른 프로그램이 파일을 쓰고 있지 않은지 보고 다시 abort") from exc
     with state.transaction(game.conn) as tx:
         progress.close_incident(tx, row, "aborted")
     shutil.rmtree(folder, ignore_errors=True)
@@ -59,7 +72,8 @@ def offer_injection(game: Game, m: Mission) -> int:
     try:
         m.chaos.inject(ctx)
         injected = m.chaos.verify(ctx)
-    except Exception:  # 시나리오 오류: 반쯤 걸린 장애를 남기지 않고 되돌린다
+    except Exception as exc:  # 시나리오 오류: 반쯤 걸린 장애를 남기지 않고 되돌린다
+        print(ui.paint(f"⚠️ 시나리오 오류: {type(exc).__name__}", "yellow"))
         injected = False
     if not injected:
         _restore_and_close(game, progress.incident_row(game.conn))
@@ -77,7 +91,8 @@ def _status(game: Game) -> int:
         return OK
     m = _mission_of(game, row)
     minutes = (datetime.now(UTC) - state.parse_utc(row["injected_at"])).total_seconds() // 60
-    print(f"🚨 {m.id} {m.title} · {int(minutes)}분째")
+    name = f"{m.id} {m.title}" if m else f"{row['mission_key']}(콘텐츠에 없음)"
+    print(f"🚨 {name} · {int(minutes)}분째")
     print(ui.paint("복구했으면 quest check, 그만두려면 quest incident abort", "dim"))
     return OK
 

@@ -51,7 +51,11 @@ def _check_tool(tool: Tool) -> bool:
     found = external.version_of(tool.cmd)
     if found is None:
         return _line(False, f"{tool.name} 없음 — 설치: {tool.install}")
-    if tool.version and not content.satisfies(tool.version, found):
+    try:
+        too_old = bool(tool.version) and not content.satisfies(tool.version, found)
+    except config.EnvError:  # content.toml의 version 형식 오류: 그 도구만 ❌로 알린다
+        return _line(False, f"{tool.name}: 허용 버전 형식이 틀렸습니다({tool.version!r})")
+    if too_old:
         return _line(False, f"{tool.name} {found} (필요: {tool.version}) — 갱신: {tool.install}")
     return _line(True, f"{tool.name} {found}")
 
@@ -89,8 +93,16 @@ def _content_manifest() -> dict:
         return {}
 
 
+def _engine_tools() -> list[Tool]:
+    """OrbStack은 macOS에서만 검사한다(Windows에서 먼저 작업할 때도 doctor가 통과하게)."""
+    if sys.platform == "darwin":
+        return list(ENGINE_TOOLS)
+    print(ui.paint("orb(OrbStack)은 macOS 전용이라 이 컴퓨터에서는 검사하지 않습니다.", "dim"))
+    return [t for t in ENGINE_TOOLS if t.name != "orb"]
+
+
 def cmd_doctor(game: None, rest: list[str]) -> int:
-    results = _check_runtime() + [_check_tool(t) for t in ENGINE_TOOLS] + [_check_gh_login()]
+    results = _check_runtime() + [_check_tool(t) for t in _engine_tools()] + [_check_gh_login()]
     tools, errors = content_tools(_content_manifest())
     results += [_check_tool(t) for t in tools] + [_line(False, e) for e in errors]
     print(f"\n점검 {len(results)}개 중 {sum(results)}개 통과")

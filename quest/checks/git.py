@@ -14,23 +14,23 @@ def _git(ctx: Ctx, args: list[str]) -> Output:
         done = external.run(["git", "--no-optional-locks", "-C", str(ctx.workdir), *args])
     except EnvError as exc:
         raise CheckEnvError(str(exc)) from exc
-    return Output(done.returncode, done.stdout.strip())
+    return Output(done.returncode, done.stdout.strip())  # porcelain·format 출력
 
 
 def _lines(ctx: Ctx, args: list[str]) -> list[str]:
     out = _git(ctx, args)
-    return out.text.splitlines() if out.code == 0 and out.text else []
+    return out.stdout.splitlines() if out.code == 0 and out.stdout else []
 
 
 def is_repo(ctx: Ctx) -> Result:
-    found = _git(ctx, ["rev-parse", "--is-inside-work-tree"]).text == "true"
+    found = _git(ctx, ["rev-parse", "--is-inside-work-tree"]).stdout == "true"
     return verdict(found, "git 리포" if found else "git 리포가 아님")
 
 
 def branch(ctx: Ctx) -> str | None:
     """지금 브랜치 이름. 커밋이 없어도 이름은 있다. 리포가 아니거나 분리된 HEAD면 None."""
     out = _git(ctx, ["symbolic-ref", "--short", "-q", "HEAD"])
-    return out.text if out.code == 0 else None
+    return out.stdout if out.code == 0 else None
 
 
 def branches(ctx: Ctx) -> list[str]:
@@ -39,7 +39,7 @@ def branches(ctx: Ctx) -> list[str]:
 
 def is_clean(ctx: Ctx) -> Result:
     out = _git(ctx, ["status", "--porcelain=v1"])
-    return verdict(out.code == 0 and out.text == "", "작업 트리 깨끗함")
+    return verdict(out.code == 0 and out.stdout == "", "작업 트리 깨끗함")
 
 
 def subjects(ctx: Ctx) -> list[str]:
@@ -63,4 +63,4 @@ def is_ignored(ctx: Ctx, path: str) -> Result:
 
 def remote_url(ctx: Ctx, name: str = "origin") -> str | None:
     out = _git(ctx, ["remote", "get-url", name])
-    return out.text if out.code == 0 else None
+    return out.stdout if out.code == 0 else None

@@ -72,14 +72,14 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
         responses = _responses("mission", answered)
         passed = all(a.correct for a in answered)
     rca_correct = None
-    for head, items, context in _gates(m) if passed and not done else ():
+    for head, items, context, is_rca in _gates(m) if passed and not done else ():
         print(ui.paint(f"\n{head}", "bold"))
         answered = ask_items(items)
         if answered is None:
             return None
         responses += _responses(context, answered)
         passed = all(a.correct for a in answered)
-        if items is m.rca:
+        if is_rca:
             rca_correct = passed
         if not passed:
             print("틀린 문항이 있어 아직 통과가 아닙니다.")
@@ -88,17 +88,17 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
                             rca_correct=rca_correct)
 
 
-def _gates(m: Mission) -> list[tuple[str, tuple, str]]:
+def _gates(m: Mission) -> list[tuple[str, tuple, str, bool]]:
     """체크를 통과한 뒤 묻는 것: 장애의 근본 원인 퀴즈, 🤝·🚀의 설명 게이트.
 
-    (제목, 문항, 응답 기록 맥락) 목록이다.
+    (제목, 문항, 응답 기록 맥락, 근본 원인 퀴즈인지) 목록이다.
     """
     gates = []
     if m.kind == "incident" and m.rca:
-        gates.append(("🔎 근본 원인: 무엇이 왜 망가졌는지", m.rca, "mission"))
+        gates.append(("🔎 근본 원인: 무엇이 왜 망가졌는지", m.rca, "mission", True))
     if m.ai in GATE_AI and m.explain:
         gates.append((f"{ui.AI_TAGS[m.ai]} 설명 게이트: 만든 결과를 내가 설명할 수 있는지",
-                      m.explain, "explain_gate"))
+                      m.explain, "explain_gate", False))
     return gates
 
 

@@ -9,11 +9,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 from quest import external
-from quest.checks import verdict
+from quest.checks import MISSING, dig, verdict
 from quest.core.config import EnvError
 from quest.core.mission import CheckEnvError, Ctx, Result
 
-MISSING = object()  # 없는 리소스·키(None은 JSON null과 겹쳐서 따로 둔다)
 Getter = Callable[[str], object]
 
 
@@ -75,15 +74,7 @@ def _getter(ctx: Ctx) -> Getter:
 
 def value(ctx: Ctx, path: str, keys: tuple[str | int, ...] = ()) -> object:
     """API 경로의 JSON에서 keys 경로의 값. 리소스·키가 없으면 MISSING."""
-    current = _getter(ctx)(path)
-    for key in keys:
-        if current is MISSING:
-            break
-        try:
-            current = current[key]
-        except (KeyError, IndexError, TypeError):
-            return MISSING
-    return current
+    return dig(_getter(ctx)(path), keys)
 
 
 def exists(ctx: Ctx, path: str) -> Result:

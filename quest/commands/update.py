@@ -44,6 +44,16 @@ def _mission_keys(root: Path) -> set[str]:
         return set()
 
 
+def _incident_active() -> bool:
+    if not state.db_path().exists():
+        return False
+    conn = state.connect()
+    try:
+        return progress.active_incident(conn)
+    finally:
+        conn.close()
+
+
 def _clone(repo: str, root: Path) -> None:
     url, on_github = _repo_url(repo)
     if on_github:  # git이 gh 로그인을 쓰게 한다(비공개 리포)
@@ -94,6 +104,9 @@ def cmd_update(game: None, rest: list[str]) -> int:
     root, repo = content.content_root(cfg), cfg.get("content", {}).get("repo", "")
     if not repo or "<" in repo:
         raise config.EnvError("설정 파일의 [content] repo에 콘텐츠 리포(소유자/이름)를 적으세요.")
+    if _incident_active():  # 장애 미션이 콘텐츠에서 바뀌면 abort가 되돌릴 시나리오를 잃는다
+        raise config.EnvError("진행 중인 장애가 있어 콘텐츠를 갱신하지 않습니다. 먼저 복구하거나"
+                              " quest incident abort")
     keys_before = _mission_keys(root)
     if (root / ".git").exists():
         before = _pull(root)

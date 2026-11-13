@@ -10,8 +10,11 @@ Docker(9장)·k3d(12장) 대상은 그 장을 만들 때 더한다.
 """
 
 import json
+import os
 import shutil
+import stat
 import tarfile
+import tempfile
 from pathlib import Path
 
 from quest.core.mission import Chaos, Ctx
@@ -69,18 +72,36 @@ def snapshot(ctx: Ctx, chaos: Chaos, folder: Path) -> None:
     (folder / MANIFEST).write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
 
 
+def _make_writable(func: object, path: str, exc: BaseException) -> None:
+    """Windows에서 git이 읽기 전용으로 둔 파일(.git/objects)도 지울 수 있게 한다."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 def _remove(path: Path) -> None:
-    if path.is_dir():
-        shutil.rmtree(path)
-    elif path.exists():
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path, onexc=_make_writable)
+    elif path.exists() or path.is_symlink():
+        path.chmod(stat.S_IWRITE)
         path.unlink()
 
 
 def restore(folder: Path) -> None:
-    """snapshot이 묶어 둔 상태로 되돌린다."""
+    """snapshot이 묶어 둔 상태로 되돌린다.
+
+    먼저 임시 폴더에 다 풀어 본 뒤 바꿔 끼운다. 풀다가 실패해도 지금 파일은 그대로 남는다.
+    우리가 만든 묶음이라 'tar' 필터를 쓴다('data'는 .venv 같은 절대 경로 링크를 거절한다).
+    """
     for entry in json.loads((folder / MANIFEST).read_text(encoding="utf-8")):
         path = Path(entry["path"])
-        _remove(path)
-        if entry["existed"]:
+        if not entry["existed"]:
+            _remove(path)
+            continue
+        staging = Path(tempfile.mkdtemp(prefix=".quest-restore-", dir=path.parent))
+        try:
             with tarfile.open(folder / entry["archive"]) as archive:
-                archive.extractall(path.parent, filter="data")  # 경로 밖으로 풀리지 않게
+                archive.extractall(staging, filter="tar")  # 절대 경로·.. 로 밖에 풀리지 않게
+            _remove(path)
+            (staging / path.name).rename(path)
+        finally:
+            _remove(staging)

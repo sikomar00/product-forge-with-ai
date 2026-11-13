@@ -5,7 +5,7 @@ import os
 import re
 from pathlib import Path
 
-from quest.checks import fail, verdict
+from quest.checks import MISSING, dig, fail, verdict
 from quest.core.mission import Ctx, Result
 
 
@@ -37,18 +37,13 @@ def is_executable(ctx: Ctx, path: str) -> Result:
     return verdict(target.is_file() and os.access(target, os.X_OK), f"{path} 실행 권한")
 
 
-MISSING = object()  # 값을 찾지 못했다는 표시(None은 JSON null과 구분되지 않아서)
-
-
 def json_value(ctx: Ctx, path: str, keys: tuple[str | int, ...]) -> object:
     """JSON 파일에서 keys 경로의 값. 파일·키가 없으면 MISSING. 비교는 콘텐츠가 verdict로 한다."""
     try:
         value = json.loads(resolve(ctx, path).read_text(encoding="utf-8"))
-        for key in keys:
-            value = value[key]
-    except (OSError, ValueError, KeyError, IndexError, TypeError):
+    except (OSError, ValueError):
         return MISSING
-    return value
+    return dig(value, keys)
 
 
 def count(ctx: Ctx, folder: str, glob: str) -> int:

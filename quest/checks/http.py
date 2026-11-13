@@ -4,17 +4,17 @@
 인증서를 확인하지 못하는 것은 환경 문제(CheckEnvError)다.
 """
 
+import http.client
 import json
 import ssl
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from quest.checks import verdict
+from quest.checks import MISSING, dig, verdict
 from quest.core.mission import CheckEnvError, Ctx, Result
 
 TIMEOUT_SEC = 10
-MISSING = object()
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ def get(ctx: Ctx, url: str) -> Response:
         if isinstance(exc.reason, ssl.SSLError):
             raise CheckEnvError(f"인증서를 확인하지 못했습니다: {exc.reason}") from exc
         return Response(None, "")
-    except TimeoutError:
+    except (http.client.HTTPException, OSError):  # 시간 초과·연결 끊김·응답이 잘림
         return Response(None, "")
 
 
@@ -45,11 +45,7 @@ def status_is(ctx: Ctx, url: str, expected: int) -> Result:
 
 def json_value(ctx: Ctx, url: str, keys: tuple[str | int, ...] = ()) -> object:
     """응답 JSON에서 keys 경로의 값. 응답이 없거나 JSON이 아니거나 키가 없으면 MISSING."""
-    response = get(ctx, url)
     try:
-        current = json.loads(response.body)
-        for key in keys:
-            current = current[key]
-    except (ValueError, KeyError, IndexError, TypeError):
+        return dig(json.loads(get(ctx, url).body), keys)
+    except ValueError:
         return MISSING
-    return current

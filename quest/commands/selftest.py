@@ -49,22 +49,23 @@ def summarize(junit_xml: Path) -> tuple[int, list[tuple[str, list[str]]]]:
     return passed, failed
 
 
-def _run_content_tests(root: Path) -> Path:
+def _run_content_tests(root: Path) -> tuple[int, list[tuple[str, list[str]]]]:
     tests = root / "tests"
     if not tests.is_dir():
         raise config.EnvError("받아 둔 콘텐츠에 tests 폴더가 없습니다. quest update로 받으세요.")
-    report = Path(tempfile.mkdtemp(prefix="quest-selftest-")) / "junit.xml"
-    external.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
-                  f"--junitxml={report}", str(tests)], cwd=root, timeout=SELFTEST_TIMEOUT_SEC)
-    if not report.exists():
-        raise config.EnvError("콘텐츠 테스트를 실행하지 못했습니다(pytest 결과 파일 없음).")
-    return report
+    with tempfile.TemporaryDirectory(prefix="quest-selftest-") as folder:
+        report = Path(folder) / "junit.xml"
+        external.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                      f"--junitxml={report}", str(tests)], cwd=root, timeout=SELFTEST_TIMEOUT_SEC)
+        if not report.exists():
+            raise config.EnvError("콘텐츠 테스트를 실행하지 못했습니다(pytest 결과 파일 없음).")
+        return summarize(report)
 
 
 def cmd_selftest(game: None, rest: list[str]) -> int:
     config.ensure_config()
     root = content.content_root(config.load_config())
-    passed, failed = summarize(_run_content_tests(root))
+    passed, failed = _run_content_tests(root)
     print(f"selftest: 통과 {passed} · 실패 {len(failed)}")
     for screen, frames in failed:
         where = ", ".join(frames) if frames else "엔진 쪽 위치 없음(콘텐츠 쪽 문제일 수 있음)"
