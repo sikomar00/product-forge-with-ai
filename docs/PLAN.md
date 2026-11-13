@@ -27,8 +27,8 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 | `pytest` | 9.2.0 | 개발·`quest selftest` | 테스트. Tech Radar가 같은 버전으로 시험 351개를 돌리는 중. 2026-10-27 출시(13일 전) |
 | `ruff` | 0.17.2 | 개발 | 린터·포매터. 순환 복잡도 규칙(C901). 2026-10-22 출시. 최신 0.17.4는 4일밖에 안 돼서 뺐다 |
 | `pandas` | 3.0.3 | S1 회귀 테스트 전용 | S1 Python 미션 10개 채점. S1을 만든 날(2026-10-12)의 최신 버전(날짜로 한 추정). Python 3.14 맥 arm64·리눅스 빌드 있음. 하위 의존성 numpy ≥ 2.3.3, python-dateutil |
-
 | `uv_build` | 0.13.6 | 빌드 백엔드 | `quest` 명령 설치용. uv와 같은 버전(2026-10-27). 2026-11-13 추가 승인 |
+
 - 엔진 실행에 필요한 외부 라이브러리는 없다. argparse, sqlite3, tomllib, zoneinfo, importlib, subprocess, urllib·ssl(http 체크), zlib·base64(난독화), json, xml.etree(JUnit XML), dataclasses, pathlib을 쓴다. httpx는 쓰지 않는다(Spec "Plan에서 정한다" → 표준 라이브러리로 충분).
 - 하위 의존성의 정확한 버전은 `uv lock`이 만든 `uv.lock`으로 고정하고 T0-1에서 목록을 보고한다.
 - CI 액션은 커밋 SHA로 고정한다: `actions/checkout` v7.0.1(`3d3c42e5aac5ba805825da76410c181273ba90b1`), `astral-sh/setup-uv` v10.3.3(`68559e99cc807c1eb7e9238fd43a15bba460eec2`). 릴리스 날짜는 확인하지 못해서 T0-1에서 확인하고, 2주가 안 됐으면 바로 앞 태그를 쓴다.
