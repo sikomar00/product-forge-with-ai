@@ -138,3 +138,42 @@ def test_exam_boss_with_solution_still_completes_by_exam(
     (ch1 / "boss.txt").write_text("x", encoding="utf-8")
     assert quest("check")[0] == 0
     assert _completed_via(_db(ch1)) == "exam"
+
+
+def _exempt_chapter_one(ch1: Path, quest: Quest) -> None:
+    quest("exam")
+    (ch1 / "boss.txt").write_text("x", encoding="utf-8")
+    quest("check")  # 1-1, 1-2 면제
+
+
+def test_redo_counts_like_a_normal_mission(ch1: Path, quest: Quest, answers: list[str]) -> None:
+    """면제된 미션 다시 하기: 실패·모범 답안·시작 시각을 새로 세고, 보상만 그대로 둔다."""
+    _exempt_chapter_one(ch1, quest)
+    assert quest("check", "1-1")[0] == 1  # fixed.txt가 아직 없다
+    answers.append("y")
+    code, out = quest("solution", "1-1")
+    assert "보상은 바뀌지 않습니다" in out and "fixed.txt" in out
+    (ch1 / "fixed.txt").write_text("x", encoding="utf-8")
+    answers.append("2")
+    assert quest("check", "1-1")[0] == 0
+    row = _db(ch1).execute(
+        "SELECT status, how, fails, solution_seen, xp_awarded FROM mission_progress"
+        " WHERE display_id = '1-1'"
+    ).fetchone()
+    assert row == ("passed", "solution", 1, 1, 8)
+
+
+def test_redo_does_not_take_over_current_mission(ch1: Path, quest: Quest) -> None:
+    _exempt_chapter_one(ch1, quest)
+    quest("mission", "1-1")  # 다시 하기 시작
+    out = quest()[1]
+    assert "현재 미션: 1-1" not in out  # 진행 흐름은 그대로(1장은 끝났다)
+    assert "⬜ 테스트" in " ".join(quest("goals")[1].split())  # 통과 전에는 아직 면제
+
+
+def test_redo_start_respects_review_lock(ch1: Path, quest: Quest) -> None:
+    _exempt_chapter_one(ch1, quest)
+    cfg = ch1.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
+    code, out = quest("mission", "1-1")
+    assert code == 2 and "새 미션을 열지 않습니다" in out

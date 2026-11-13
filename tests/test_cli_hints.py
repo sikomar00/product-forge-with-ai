@@ -25,7 +25,7 @@ def _events(game: Path) -> list[tuple[str, str | None]]:
 def test_hint_asks_first_and_shows_penalty(game: Path, quest: Quest, answers: list[str]) -> None:
     answers.append("n")
     code, out = quest("hint")
-    assert code == 0 and "힌트 1단계를 열면 보상이 12 → 8 XP" in out and "열지 않았습니다" in out
+    assert code == 0 and "힌트 1단계를 엽니다. 보상이 12 → 8 XP" in out and "열지 않았습니다" in out
     assert _row(game, "hints_used") is None  # 안 열었으니 시작 기록도 없다
 
 

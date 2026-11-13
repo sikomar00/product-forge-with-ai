@@ -252,7 +252,7 @@ def test_goals_counts_passed_missions_only(game: Path, quest: Quest, answers: li
     ("goals", "reason"),
     [
         ('[goals]\nmagic = ["m_f0000001"]', "알 수 없는 영역"),
-        ('[goals]\nplanning = ["m_00000000"]', "콘텐츠에 없는 미션 키"),
+        ('[goals]\nplanning = ["5-1"]', "미션 키 형식이 틀렸습니다"),  # 화면 번호는 키가 아니다
         ("[goals]\nplanning = []", "목록이 비었거나"),
     ],
 )
@@ -265,3 +265,25 @@ def test_bad_goals_table_is_refused(tmp_path: Path, goals: str, reason: str) -> 
     manifest.write_text(text[: text.index("[goals]")] + goals + "\n", encoding="utf-8")
     with pytest.raises(content.EnvError, match=reason):
         content.load_content(root)
+
+
+def test_goals_can_list_missions_not_written_yet(tmp_path: Path) -> None:
+    """콘텐츠는 한 장씩 앞서 만든다. 앞으로 만들 미션 키를 미리 적어도 불러온다."""
+    import shutil
+
+    root = Path(shutil.copytree(FAKE, tmp_path / "c"))
+    manifest = root / "content.toml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace(
+            'testing = ["m_f0000011"]', 'testing = ["m_f0000011", "m_abcdef01"]'
+        ),
+        encoding="utf-8",
+    )
+    assert content.load_content(root).goals["testing"] == ("m_f0000011", "m_abcdef01")
+
+
+def test_pad_uses_display_width() -> None:
+    from quest.core import ui
+
+    assert ui.display_width("기획") == 4 and ui.display_width("Git·CI/CD") == 9
+    assert ui.pad("기획", 6) == "기획  " and ui.pad("CI", 6) == "CI    "
