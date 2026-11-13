@@ -1,10 +1,12 @@
-"""복습(M0-12)과 복습 잠금(M0-13): Leitner 상자, 연속 복습일, 잠금 기록(Spec "복습").
+"""복습(M0-12)과 복습 잠금(M0-13): Leitner 상자, 연속 복습일, 잠금 기록,
+재구성 복습, 지연 확인 퀴즈(Spec "복습").
 
 쓰기 함수는 트랜잭션을 열지 않는다. 명령이 state.transaction() 안에서 부른다.
 """
 
 import sqlite3
 from datetime import date, timedelta
+from pathlib import Path
 
 from quest.core.progress import event
 from quest.core.state import KST, format_utc, parse_utc
@@ -80,3 +82,59 @@ def sync_lock(conn: sqlite3.Connection, threshold: int, at: str) -> bool:
         event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at,
               {"due": conn.execute("SELECT due FROM v_due_cards").fetchone()[0]})
     return now_locked
+
+
+# ───────────── 재구성 복습 ─────────────
+
+REBUILD_EVERY = timedelta(days=7)
+
+
+def rebuild_due(conn: sqlite3.Connection, at: str) -> bool:
+    """마지막 재구성 복습 시작에서 7일이 지났거나 한 번도 안 했으면 True."""
+    last = conn.execute("SELECT max(at) FROM events WHERE kind = 'rebuild_started'").fetchone()[0]
+    return last is None or parse_utc(at) - parse_utc(last) >= REBUILD_EVERY
+
+
+def rebuild_target(conn: sqlite3.Connection, candidates: list[str]) -> str | None:
+    """재구성할 미션 키. 모범 답안을 보고 통과한 미션 → 오래전에 통과한 미션 순서다.
+
+    이미 재구성을 통과한 미션은 뒤로 보낸다. 같은 미션만 매주 나오지 않게 하려는 것이다.
+    candidates는 콘텐츠에서 고른 체크형·랩 불필요 미션 키다.
+    """
+    marks = ",".join("?" * len(candidates))
+    row = conn.execute(
+        f"SELECT mission_key FROM mission_progress mp WHERE status = 'passed'"
+        f" AND mission_key IN ({marks}) ORDER BY EXISTS (SELECT 1 FROM events e"
+        " WHERE e.kind = 'rebuild_passed' AND e.mission_key = mp.mission_key),"
+        " solution_seen DESC, completed_at LIMIT 1",
+        candidates,
+    ).fetchone()
+    return row[0] if row else None
+
+
+def sandbox_path(display_id: str, started_at: str) -> Path:
+    """~/forge-sandbox/<화면 번호>-<YYYYMMDD 한국 날짜>/ (Spec "파일 위치")."""
+    day = parse_utc(started_at).astimezone(KST).strftime("%Y%m%d")
+    return Path.home() / "forge-sandbox" / f"{display_id}-{day}"
+
+
+# ───────────── 지연 확인 퀴즈 ─────────────
+
+
+def delayed_quiz_chapters(conn: sqlite3.Connection) -> list[int]:
+    """장 완료 14일 뒤 만기가 됐고 아직 풀지 않은 장."""
+    rows = conn.execute(f"SELECT chapter FROM v_delayed_quiz_due WHERE due_at <= {_NOW}")
+    return [row[0] for row in rows]
+
+
+def record_delayed_quiz(conn: sqlite3.Connection, chapter: int,
+                        answered: list[tuple[int, bool, int | None]], at: str) -> None:
+    """(문항 번호, 정답 여부, 확신도) 목록을 남기고 그 장의 지연 확인 퀴즈를 끝낸다."""
+    conn.executemany(
+        "INSERT INTO responses (attempt_id, chapter, context, item_no, correct, confidence, at)"
+        " VALUES (NULL, ?, 'delayed_quiz', ?, ?, ?, ?)",
+        [(chapter, no, int(ok), conf, at) for no, ok, conf in answered],
+    )
+    conn.execute(
+        "UPDATE chapter_progress SET delayed_quiz_done_at = ? WHERE chapter = ?", (at, chapter)
+    )

@@ -20,3 +20,8 @@ def mission_xp(xp: int, hints: int, fails: int, solution_seen: bool) -> int:
 def exam_skip_xp(xp: int) -> int:
     """승급 시험으로 면제된 미션 하나의 보상(Spec "보상")."""
     return round(xp * EXAM_SKIP_RATE)
+
+
+def rebuild_xp(xp: int) -> int:
+    """재구성 복습 통과 보상. rebuild_passed 이벤트 값으로 남는다(Spec "보상")."""
+    return max(3, round(xp * 0.15))

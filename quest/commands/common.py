@@ -1,13 +1,13 @@
 """명령들이 함께 쓰는 것: 게임 열기, 대상 미션 고르기, 종료 코드, 확인 질문."""
 
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 
 from quest.core import config, content, progress, review, state, ui
-from quest.core.mission import Ctx, Mission
+from quest.core.mission import Ctx, Item, Mission
 
 OK, FAIL, USAGE, ENV = 0, 1, 2, 3  # Spec "화면과 종료 코드"
 
@@ -17,6 +17,7 @@ class Game:
     conn: sqlite3.Connection
     missions: tuple[Mission, ...]
     cfg: dict
+    quizzes: dict[int, tuple[Item, ...]] = field(default_factory=dict)  # 장 → 지연 확인 퀴즈
 
 
 def open_game() -> Game:
@@ -34,7 +35,7 @@ def open_game() -> Game:
             " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
             (version("quest"),),
         )
-    return Game(conn, loaded.missions, cfg)
+    return Game(conn, loaded.missions, cfg, loaded.delayed_quiz)
 
 
 def versions(conn: sqlite3.Connection) -> tuple[str, str]:

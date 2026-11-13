@@ -1,9 +1,11 @@
 """IA-3 채점: 체크형·문항형 미션, 설명 게이트, 보상(M0-07, M0-10, M0-11, Spec "채점")."""
 
+from dataclasses import replace
+
 from quest.commands.ask import Answered, ask_items
 from quest.commands.common import FAIL, OK, USAGE, Game, line, make_ctx, target, versions
-from quest.core import progress, rewards, state, ui
-from quest.core.mission import CHECK_KINDS, Mission, Result
+from quest.core import progress, review, rewards, state, ui
+from quest.core.mission import CHECK_KINDS, Ctx, Mission, Result
 from quest.kinds import ops
 
 # 실패한 체크의 설명이 결함·원인 위치를 알려 주므로 숨긴다(IA 결정 4)
@@ -31,11 +33,23 @@ def _responses(context: str, answered: list[Answered]) -> list[tuple[str, int, b
     return [(context, a.item.no, a.correct, a.confidence) for a in answered]
 
 
+def _rebuilding(game: Game, m: Mission) -> bool:
+    return progress.mode(game.conn) == "review" and progress.mode_mission(game.conn) == m.key
+
+
+def _ctx_for(game: Game, m: Mission) -> Ctx:
+    """재구성 복습 중이면 샌드박스를, 아니면 OpsDesk 리포를 채점한다."""
+    ctx = make_ctx(game.cfg)
+    if _rebuilding(game, m):
+        return replace(ctx, workdir=review.sandbox_path(m.id, progress.mode_started(game.conn)))
+    return ctx
+
+
 def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
     """채점해서 Attempt를 만든다. 문항 답을 끝까지 받지 못하면 None."""
     checks, responses = [], []
     if m.kind in CHECK_KINDS:
-        results, traps = ops.grade(m, make_ctx(game.cfg))  # 읽기 전용이라 트랜잭션 밖에서 돌린다
+        results, traps = ops.grade(m, _ctx_for(game, m))  # 읽기 전용이라 트랜잭션 밖에서 돌린다
         _show_results(m, results, traps)
         checks = [r.ok for r in results]
         passed = all(checks)
@@ -66,16 +80,12 @@ def _finish_exam(game: Game, boss: Mission, at: str) -> list[tuple[Mission, int]
     return exempted
 
 
-def cmd_check(game: Game, rest: list[str]) -> int:
-    m, code = target(game, rest)
-    if m is None:
-        return code
-    row = progress.progress_row(game.conn, m.key)
-    attempt = _grade(game, m, done=row is not None and row["status"] != "in_progress")
-    if attempt is None:
-        print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
-        return USAGE
-    conn, xp, exempted = game.conn, None, []
+def _save(
+    game: Game, m: Mission, attempt: progress.Attempt
+) -> tuple[int | None, list[tuple[Mission, int]], int | None]:
+    """시도를 한 트랜잭션으로 기록하고 (미션 보상, 시험 면제 목록, 재구성 보상)을 돌려준다."""
+    conn, xp, exempted, rebuilt = game.conn, None, [], None
+    rebuilding = _rebuilding(game, m)
     with state.transaction(conn):
         progress.start(conn, m, attempt.at)
         progress.record_attempt(conn, m, attempt)
@@ -85,12 +95,33 @@ def cmd_check(game: Game, rest: list[str]) -> int:
             progress.pass_mission(conn, m, xp, attempt.at)
             if progress.mode(conn) == "exam" and progress.mode_mission(conn) == m.key:
                 exempted = _finish_exam(game, m, attempt.at)
+        if attempt.passed and rebuilding:
+            rebuilt = rewards.rebuild_xp(m.xp)
+            progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": rebuilt})
+            progress.set_mode(conn, "normal", None, attempt.at)
+    return xp, exempted, rebuilt
+
+
+def cmd_check(game: Game, rest: list[str]) -> int:
+    m, code = target(game, rest)
+    if m is None:
+        return code
+    row = progress.progress_row(game.conn, m.key)
+    attempt = _grade(game, m, done=row is not None and row["status"] != "in_progress")
+    if attempt is None:
+        print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
+        return USAGE
+    xp, exempted, rebuilt = _save(game, m, attempt)
     if not attempt.passed:
         print(ui.paint("다시 quest check로 처음부터 다시 봅니다. 막히면 quest hint", "dim"))
         return FAIL
+    if rebuilt is not None:
+        print(ui.paint(f"🔁 재구성 복습 통과! +{rebuilt} XP", "green"))
+        return OK
     if xp is None:
         print("✅ 이미 끝낸 미션입니다. 보상은 다시 주지 않습니다.")
         return OK
+    row = progress.progress_row(game.conn, m.key)
     one_shot = row["fails"] == 0 and row["hints_used"] == 0 and not row["solution_seen"]
     print(ui.paint(f"🎉 통과! +{xp} XP" + (" (원샷 보너스)" if one_shot else ""), "green"))
     if m.cards:
@@ -98,6 +129,6 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if exempted:
         total = sum(x for _, x in exempted)
         print(f"🏁 승급 시험 통과! 남은 미션 {len(exempted)}개를 면제하고 +{total} XP")
-    nxt = progress.current(game.missions, progress.statuses(conn))
+    nxt = progress.current(game.missions, progress.statuses(game.conn))
     print(f"다음 미션: {line(nxt)} → quest mission" if nxt else "🎉 모든 코어 미션을 마쳤습니다.")
     return OK

@@ -65,6 +65,11 @@ def mode_mission(conn: sqlite3.Connection) -> str | None:
     return row[0] if row else None
 
 
+def mode_started(conn: sqlite3.Connection) -> str | None:
+    row = conn.execute("SELECT mode_started_at FROM game_state WHERE id = 1").fetchone()
+    return row[0] if row else None
+
+
 def set_mode(conn: sqlite3.Connection, new_mode: str, mission_key: str | None, at: str) -> None:
     started = None if new_mode == "normal" else at
     conn.execute(
