@@ -3,6 +3,7 @@
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -75,12 +76,23 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         raise EnvError(f"상태 DB 스키마 버전이 {found}입니다. 이 엔진은 {SCHEMA_VERSION}만 엽니다.")
 
 
+@dataclass(frozen=True)
+class Tx:
+    """열린 트랜잭션 하나와 그 기록 시각. 한 명령의 쓰기는 모두 같은 시각을 남긴다.
+
+    쓰기 함수가 (연결, 시각)을 따로 받지 않게 묶는다(rules/code.md 인자 3개 이하).
+    """
+
+    conn: sqlite3.Connection
+    at: str
+
+
 @contextmanager
-def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+def transaction(conn: sqlite3.Connection, at: str | None = None) -> Iterator[Tx]:
     """명령 하나의 쓰기를 트랜잭션 하나로 묶는다. 예외가 나면 모두 되돌린다."""
     conn.execute("BEGIN IMMEDIATE")
     try:
-        yield conn
+        yield Tx(conn, at or now_utc())
     except BaseException:
         conn.execute("ROLLBACK")
         raise

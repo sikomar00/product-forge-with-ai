@@ -10,7 +10,7 @@ from pathlib import Path
 
 from quest.core.config import EnvError
 from quest.core.progress import event
-from quest.core.state import KST, format_utc, parse_utc
+from quest.core.state import KST, Tx, format_utc, parse_utc
 
 INTERVAL_DAYS = {1: 1, 2: 2, 3: 4, 4: 8, 5: 16}  # 📐 상자 → 다음 만기까지 날 수
 MAX_CARDS = 15
@@ -33,20 +33,19 @@ def due_cards(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ).fetchall()
 
 
-def record_review(conn: sqlite3.Connection, card: sqlite3.Row, answer: tuple[bool, int | None],
-                  at: str) -> int:
+def record_review(tx: Tx, card: sqlite3.Row, answer: tuple[bool, int | None]) -> int:
     """카드 복습 한 번을 남기고 새 상자를 돌려준다. answer는 (정답 여부, 확신도)."""
     correct, confidence = answer
     box = next_box(card["box"], correct)
-    due = format_utc(parse_utc(at) + timedelta(days=INTERVAL_DAYS[box]))
-    conn.execute(
+    due = format_utc(parse_utc(tx.at) + timedelta(days=INTERVAL_DAYS[box]))
+    tx.conn.execute(
         "UPDATE cards SET box = ?, due_at = ?, last_reviewed_at = ? WHERE card_key = ?",
-        (box, due, at, card["card_key"]),
+        (box, due, tx.at, card["card_key"]),
     )
-    conn.execute(
+    tx.conn.execute(
         "INSERT INTO reviews (card_key, at, correct, confidence, box_before, box_after)"
         " VALUES (?, ?, ?, ?, ?, ?)",
-        (card["card_key"], at, int(correct), confidence, card["box"], box),
+        (card["card_key"], tx.at, int(correct), confidence, card["box"], box),
     )
     return box
 
@@ -72,16 +71,16 @@ def lock_threshold(cfg: dict) -> int:
     return value
 
 
-def sync_lock(conn: sqlite3.Connection, due: int, threshold: int, at: str) -> None:
+def sync_lock(tx: Tx, due: int, threshold: int) -> None:
     """잠금 상태가 바뀌었으면 review_lock_on·off를 남긴다. 값은 그때의 만기 카드 수다."""
     now_locked = due >= threshold
-    last = conn.execute(
+    last = tx.conn.execute(
         "SELECT kind FROM events WHERE kind IN ('review_lock_on', 'review_lock_off')"
         " ORDER BY event_id DESC LIMIT 1"
     ).fetchone()
     was_locked = last is not None and last[0] == "review_lock_on"
     if now_locked != was_locked:
-        event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at, {"due": due})
+        event(tx, "review_lock_on" if now_locked else "review_lock_off", None, {"due": due})
 
 
 # ───────────── 재구성 복습 ─────────────
@@ -127,14 +126,14 @@ def delayed_quiz_chapters(conn: sqlite3.Connection) -> list[int]:
     return [row[0] for row in rows]
 
 
-def record_delayed_quiz(conn: sqlite3.Connection, chapter: int,
-                        answered: list[tuple[int, bool, int | None]], at: str) -> None:
+def record_delayed_quiz(tx: Tx, chapter: int,
+                        answered: list[tuple[int, bool, int | None]]) -> None:
     """(문항 번호, 정답 여부, 확신도) 목록을 남기고 그 장의 지연 확인 퀴즈를 끝낸다."""
-    conn.executemany(
+    tx.conn.executemany(
         "INSERT INTO responses (attempt_id, chapter, context, item_no, correct, confidence, at)"
         " VALUES (NULL, ?, 'delayed_quiz', ?, ?, ?, ?)",
-        [(chapter, no, int(ok), conf, at) for no, ok, conf in answered],
+        [(chapter, no, int(ok), conf, tx.at) for no, ok, conf in answered],
     )
-    conn.execute(
-        "UPDATE chapter_progress SET delayed_quiz_done_at = ? WHERE chapter = ?", (at, chapter)
+    tx.conn.execute(
+        "UPDATE chapter_progress SET delayed_quiz_done_at = ? WHERE chapter = ?", (tx.at, chapter)
     )

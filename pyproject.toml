@@ -33,10 +33,16 @@ module-root = ""
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "C901"]
+select = ["E", "F", "W", "I", "B", "UP", "C901", "PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0913"]  # 시험 함수의 인자는 pytest가 넣는 픽스처·매개변수다
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 3  # rules/code.md 인자 3개 이하
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

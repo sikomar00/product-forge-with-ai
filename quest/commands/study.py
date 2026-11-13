@@ -10,8 +10,8 @@ def cmd_review(game: Game, rest: list[str]) -> int:
     conn = game.conn
     cards = {card.key: card for m in game.missions for card in m.cards}
     due = due_now(game)[: review.MAX_CARDS]
-    with state.transaction(conn):
-        progress.event(conn, "review_started", None, state.now_utc(), {"cards": len(due)})
+    with state.transaction(conn) as tx:
+        progress.event(tx, "review_started", None, {"cards": len(due)})
     print(ui.paint(f"🃏 오늘 복습할 카드: {len(due)}장", "bold"))
     correct = 0
     for number, row in enumerate(due, 1):
@@ -20,18 +20,17 @@ def cmd_review(game: Game, rest: list[str]) -> int:
         if answer is None:
             print("복습을 멈췄습니다. 답한 카드까지는 저장했습니다.")
             return USAGE
-        with state.transaction(conn):
-            box = review.record_review(conn, row, answer, state.now_utc())
+        with state.transaction(conn) as tx:
+            box = review.record_review(tx, row, answer)
         correct += answer[0]
         print(ui.paint(f"   → {box}번 상자, {review.INTERVAL_DAYS[box]}일 뒤 다시", "dim"))
-    at = state.now_utc()
-    with state.transaction(conn):
-        progress.event(conn, "review_finished", None, at, {"cards": len(due), "correct": correct})
-    with state.transaction(conn):
-        for key in badges.award(conn, None, at):
-            print(ui.paint(f"🏅 배지 획득: {badges.name(key)}", "yellow"))
+    with state.transaction(conn) as tx:
+        progress.event(tx, "review_finished", None, {"cards": len(due), "correct": correct})
+        new_badges = badges.award(tx, None)
+    for key in new_badges:
+        print(ui.paint(f"🏅 배지 획득: {badges.name(key)}", "yellow"))
     still_locked = lock_state(game)[0]
-    days = review.streak(conn, state.parse_utc(at).astimezone(state.KST).date())
+    days = review.streak(conn, state.parse_utc(tx.at).astimezone(state.KST).date())
     print(f"\n복습 끝: {correct}/{len(due)} 맞힘 · 연속 복습 {days}일")
     if still_locked:
         print("🔒 아직 만기 카드가 많아 새 미션이 잠겨 있습니다. 내일 다시 quest review")
@@ -53,10 +52,9 @@ def _delayed_quizzes(game: Game) -> bool:
         if answered is None:
             print("퀴즈를 멈췄습니다. 다음 quest review에서 처음부터 다시 냅니다.")
             return False
-        with state.transaction(game.conn):
+        with state.transaction(game.conn) as tx:
             review.record_delayed_quiz(
-                game.conn, chapter, [(a.item.no, a.correct, a.confidence) for a in answered],
-                state.now_utc(),
+                tx, chapter, [(a.item.no, a.correct, a.confidence) for a in answered]
             )
         print(f"{chapter}장 지연 확인 퀴즈: {sum(a.correct for a in answered)}/{len(answered)}")
     return True
@@ -77,8 +75,8 @@ def _offer_rebuild(game: Game) -> None:
         return
     sandbox = review.sandbox_path(m.id, at)
     sandbox.mkdir(parents=True, exist_ok=True)
-    with state.transaction(conn):
-        progress.set_mode(conn, "review", m.key, at)
-        progress.event(conn, "rebuild_started", m.key, at)
+    with state.transaction(conn, at) as tx:  # 샌드박스 이름과 같은 시각
+        progress.set_mode(tx, "review", m.key)
+        progress.event(tx, "rebuild_started", m.key)
     print(f"빈 폴더에서 처음부터 다시 만드세요: {sandbox}")
     print(ui.paint("다 되면 quest check(이 폴더를 채점), 그만두면 quest back", "dim"))

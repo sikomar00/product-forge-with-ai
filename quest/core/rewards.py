@@ -1,5 +1,8 @@
 """보상 계산(M0-08). S1 engine.py의 on_success와 같은 계산이다(Spec "보상")."""
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+
 SOLUTION_RATE = 0.2
 ONE_SHOT_RATE = 0.2
 HINT_PENALTY = 0.2
@@ -9,12 +12,26 @@ REBUILD_RATE = 0.15
 REBUILD_MIN = 3
 
 
-def mission_xp(xp: int, hints: int, fails: int, solution_seen: bool) -> int:
+@dataclass(frozen=True)
+class Help:
+    """보상에 영향을 주는 것: 연 힌트 수, 실패 수, 모범 답안을 봤는지."""
+
+    hints: int = 0
+    fails: int = 0
+    solution_seen: bool = False
+
+    @classmethod
+    def of(cls, row: Mapping) -> Help:
+        """mission_progress 행(또는 같은 키를 가진 dict)에서."""
+        return cls(row["hints_used"], row["fails"], bool(row["solution_seen"]))
+
+
+def mission_xp(xp: int, used: Help) -> int:
     """반올림은 S1과 같게 Python round()(은행가 반올림)를 그대로 쓴다."""
-    if solution_seen:
+    if used.solution_seen:
         return round(xp * SOLUTION_RATE)
-    earned = round(xp * max(MIN_RATE, 1 - HINT_PENALTY * hints))
-    if fails == 0 and hints == 0:
+    earned = round(xp * max(MIN_RATE, 1 - HINT_PENALTY * used.hints))
+    if used.fails == 0 and used.hints == 0:
         earned += round(xp * ONE_SHOT_RATE)
     return earned
 

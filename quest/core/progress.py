@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from quest.core import rewards
 from quest.core.mission import Mission
-from quest.core.state import format_utc, parse_utc
+from quest.core.state import Tx, format_utc, parse_utc
 
 # 장 이름은 design.md 5절에 공개돼 있다.
 CHAPTERS = (
@@ -90,16 +90,6 @@ def mode_started(conn: sqlite3.Connection) -> str | None:
     return row[0] if row else None
 
 
-def set_mode(conn: sqlite3.Connection, new_mode: str, mission_key: str | None, at: str) -> None:
-    started = None if new_mode == "normal" else at
-    conn.execute(
-        "INSERT INTO game_state (id, mode, mode_mission_key, mode_started_at, updated_at)"
-        " VALUES (1, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET mode = excluded.mode,"
-        " mode_mission_key = excluded.mode_mission_key,"
-        " mode_started_at = excluded.mode_started_at, updated_at = excluded.updated_at",
-        (new_mode, mission_key, started, at),
-    )
-
 
 def total_xp(conn: sqlite3.Connection) -> int:
     missions = conn.execute("SELECT coalesce(sum(xp_awarded), 0) FROM mission_progress")
@@ -113,103 +103,6 @@ def total_xp(conn: sqlite3.Connection) -> int:
 def active_incident(conn: sqlite3.Connection) -> bool:
     return conn.execute("SELECT 1 FROM incidents WHERE status = 'active'").fetchone() is not None
 
-
-def event(conn: sqlite3.Connection, kind: str, mission_key: str | None, at: str,
-          payload: dict | None = None) -> None:
-    conn.execute(
-        "INSERT INTO events (at, kind, mission_key, payload) VALUES (?, ?, ?, ?)",
-        (at, kind, mission_key, json.dumps(payload) if payload else None),
-    )
-
-
-def start(conn: sqlite3.Connection, m: Mission, at: str) -> bool:
-    """미션을 처음 보여 줄 때 시작 기록을 만든다. 이미 시작했으면 False.
-
-    면제된 미션을 학습자가 직접 다시 하면 보통 진행 중 미션으로 되돌린다. 시작 시각·실패·힌트·
-    모범 답안을 새로 세고, 받은 보상(xp_awarded)만 그대로 둔다. 면제 이력은 이벤트에 남아 있다.
-    """
-    row = progress_row(conn, m.key)
-    if row is not None and row["status"] != "exempted":
-        return False
-    if row is not None:
-        conn.execute(
-            "UPDATE mission_progress SET status = 'in_progress', how = NULL, completed_at = NULL,"
-            " started_at = ?, first_check_at = NULL, fails = 0, hints_used = 0, solution_seen = 0"
-            " WHERE mission_key = ?",
-            (at, m.key),
-        )
-        event(conn, "mission_started", m.key, at, {"redo": 1})
-        return True
-    conn.execute(
-        "INSERT INTO mission_progress (mission_key, display_id, chapter, status, started_at,"
-        " est_min, ai_tag) VALUES (?, ?, ?, 'in_progress', ?, ?, ?)",
-        (m.key, m.id, m.ch, at, m.est_min, m.ai),
-    )
-    conn.execute(
-        "INSERT OR IGNORE INTO chapter_progress (chapter, started_at) VALUES (?, ?)", (m.ch, at)
-    )
-    event(conn, "mission_started", m.key, at)
-    return True
-
-
-@dataclass(frozen=True)
-class Attempt:
-    """quest check 한 번의 결과. 내용(설명·정답)이 아니라 번호와 정오만 담는다."""
-
-    checks: list[bool]  # 체크 번호 순서의 통과 여부. 문항형 미션은 빈 목록
-    passed: bool
-    at: str
-    versions: tuple[str, str]  # (엔진, 콘텐츠)
-    responses: list[tuple[str, int, bool, int | None]] = field(default_factory=list)
-    # (context: mission·explain_gate, 문항 번호, 정답 여부, 확신도)
-
-
-def record_attempt(conn: sqlite3.Connection, m: Mission, attempt: Attempt) -> int:
-    """시도 한 번과 문항 응답을 남기고 attempt_id를 돌려준다. 실패는 진행 중일 때만 센다."""
-    row = progress_row(conn, m.key)
-    if row["first_check_at"] is None:
-        conn.execute("UPDATE mission_progress SET first_check_at = ? WHERE mission_key = ?",
-                     (attempt.at, m.key))
-        event(conn, "first_check", m.key, attempt.at)
-    if not attempt.passed and row["status"] == "in_progress":
-        conn.execute("UPDATE mission_progress SET fails = fails + 1 WHERE mission_key = ?",
-                     (m.key,))
-    checks = [{"no": no, "ok": ok} for no, ok in enumerate(attempt.checks, 1)]
-    cursor = conn.execute(
-        "INSERT INTO attempts (mission_key, display_id, mode, at, outcome, check_results,"
-        " engine_version, content_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (m.key, m.id, mode(conn), attempt.at, "pass" if attempt.passed else "fail",
-         json.dumps(checks), *attempt.versions),
-    )
-    conn.executemany(
-        "INSERT INTO responses (attempt_id, chapter, context, item_no, correct, confidence, at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [(cursor.lastrowid, m.ch, context, no, int(ok), conf, attempt.at)
-         for context, no, ok, conf in attempt.responses],
-    )
-    return cursor.lastrowid
-
-
-def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None:
-    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다."""
-    if progress_row(conn, m.key)["solution_seen"]:
-        how = "solution"
-    else:
-        how = "exam" if is_exam_target(conn, m.key) else "normal"
-    conn.execute(
-        "UPDATE mission_progress SET status = 'passed', how = ?, completed_at = ?, xp_awarded = ?"
-        " WHERE mission_key = ?",
-        (how, at, xp, m.key),
-    )
-    due = format_utc(parse_utc(at) + CARD_FIRST_DUE)
-    conn.executemany(
-        "INSERT OR IGNORE INTO cards (card_key, mission_key, kind, added_at, due_at)"
-        " VALUES (?, ?, ?, ?, ?)",
-        [(c.key, m.key, c.kind, at, due) for c in m.cards],
-    )
-    event(conn, "mission_passed", m.key, at, {"xp": xp})
-
-
 def is_exam_target(conn: sqlite3.Connection, key: str) -> bool:
     """시험 모드이고 그 대상(보스)이 이 미션인지."""
     return mode(conn) == "exam" and mode_mission(conn) == key
@@ -220,66 +113,177 @@ def is_rebuild_target(conn: sqlite3.Connection, key: str) -> bool:
     return mode(conn) == "review" and mode_mission(conn) == key
 
 
-def complete_chapter_if_done(conn: sqlite3.Connection, chapter_core: list[Mission],
-                             at: str) -> bool:
+# ───────────── 쓰기: 명령이 연 트랜잭션(Tx) 안에서 부른다 ─────────────
+
+
+def event(  # noqa: PLR0913 - payload는 선택 값이라 필수 인자는 3개다
+    tx: Tx, kind: str, mission_key: str | None, payload: dict | None = None
+) -> None:
+    tx.conn.execute(
+        "INSERT INTO events (at, kind, mission_key, payload) VALUES (?, ?, ?, ?)",
+        (tx.at, kind, mission_key, json.dumps(payload) if payload else None),
+    )
+
+
+def set_mode(tx: Tx, new_mode: str, mission_key: str | None) -> None:
+    started = None if new_mode == "normal" else tx.at
+    tx.conn.execute(
+        "INSERT INTO game_state (id, mode, mode_mission_key, mode_started_at, updated_at)"
+        " VALUES (1, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET mode = excluded.mode,"
+        " mode_mission_key = excluded.mode_mission_key,"
+        " mode_started_at = excluded.mode_started_at, updated_at = excluded.updated_at",
+        (new_mode, mission_key, started, tx.at),
+    )
+
+
+def start(tx: Tx, m: Mission) -> bool:
+    """미션을 처음 보여 줄 때 시작 기록을 만든다. 이미 시작했으면 False.
+
+    면제된 미션을 학습자가 직접 다시 하면 보통 진행 중 미션으로 되돌린다. 시작 시각·실패·힌트·
+    모범 답안을 새로 세고, 받은 보상(xp_awarded)만 그대로 둔다. 면제 이력은 이벤트에 남아 있다.
+    """
+    row = progress_row(tx.conn, m.key)
+    if row is not None and row["status"] != "exempted":
+        return False
+    if row is not None:
+        tx.conn.execute(
+            "UPDATE mission_progress SET status = 'in_progress', how = NULL, completed_at = NULL,"
+            " started_at = ?, first_check_at = NULL, fails = 0, hints_used = 0, solution_seen = 0"
+            " WHERE mission_key = ?",
+            (tx.at, m.key),
+        )
+        event(tx, "mission_started", m.key, {"redo": 1})
+        return True
+    tx.conn.execute(
+        "INSERT INTO mission_progress (mission_key, display_id, chapter, status, started_at,"
+        " est_min, ai_tag) VALUES (?, ?, ?, 'in_progress', ?, ?, ?)",
+        (m.key, m.id, m.ch, tx.at, m.est_min, m.ai),
+    )
+    tx.conn.execute(
+        "INSERT OR IGNORE INTO chapter_progress (chapter, started_at) VALUES (?, ?)", (m.ch, tx.at)
+    )
+    event(tx, "mission_started", m.key)
+    return True
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """quest check 한 번의 결과. 내용(설명·정답)이 아니라 번호와 정오만 담는다."""
+
+    checks: list[bool]  # 체크 번호 순서의 통과 여부. 문항형 미션은 빈 목록
+    passed: bool
+    versions: tuple[str, str]  # (엔진, 콘텐츠)
+    responses: list[tuple[str, int, bool, int | None]] = field(default_factory=list)
+    # (context: mission·explain_gate, 문항 번호, 정답 여부, 확신도)
+
+
+def record_attempt(tx: Tx, m: Mission, attempt: Attempt) -> int:
+    """시도 한 번과 문항 응답을 남기고 attempt_id를 돌려준다. 실패는 진행 중일 때만 센다."""
+    conn = tx.conn
+    row = progress_row(conn, m.key)
+    if row["first_check_at"] is None:
+        conn.execute("UPDATE mission_progress SET first_check_at = ? WHERE mission_key = ?",
+                     (tx.at, m.key))
+        event(tx, "first_check", m.key)
+    if not attempt.passed and row["status"] == "in_progress":
+        conn.execute("UPDATE mission_progress SET fails = fails + 1 WHERE mission_key = ?",
+                     (m.key,))
+    checks = [{"no": no, "ok": ok} for no, ok in enumerate(attempt.checks, 1)]
+    cursor = conn.execute(
+        "INSERT INTO attempts (mission_key, display_id, mode, at, outcome, check_results,"
+        " engine_version, content_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (m.key, m.id, mode(conn), tx.at, "pass" if attempt.passed else "fail",
+         json.dumps(checks), *attempt.versions),
+    )
+    conn.executemany(
+        "INSERT INTO responses (attempt_id, chapter, context, item_no, correct, confidence, at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [(cursor.lastrowid, m.ch, context, no, int(ok), conf, tx.at)
+         for context, no, ok, conf in attempt.responses],
+    )
+    return cursor.lastrowid
+
+
+def pass_mission(tx: Tx, m: Mission, xp: int) -> None:
+    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다."""
+    if progress_row(tx.conn, m.key)["solution_seen"]:
+        how = "solution"
+    else:
+        how = "exam" if is_exam_target(tx.conn, m.key) else "normal"
+    tx.conn.execute(
+        "UPDATE mission_progress SET status = 'passed', how = ?, completed_at = ?, xp_awarded = ?"
+        " WHERE mission_key = ?",
+        (how, tx.at, xp, m.key),
+    )
+    due = format_utc(parse_utc(tx.at) + CARD_FIRST_DUE)
+    tx.conn.executemany(
+        "INSERT OR IGNORE INTO cards (card_key, mission_key, kind, added_at, due_at)"
+        " VALUES (?, ?, ?, ?, ?)",
+        [(c.key, m.key, c.kind, tx.at, due) for c in m.cards],
+    )
+    event(tx, "mission_passed", m.key, {"xp": xp})
+
+
+def complete_chapter_if_done(tx: Tx, chapter_core: list[Mission]) -> bool:
     """장의 보스를 통과했고 코어 미션이 모두 통과·면제면 장을 끝낸다. 끝냈으면 True.
 
     보스를 ID로 먼저 통과해도 남은 코어 미션이 있으면 장은 끝나지 않는다(지연 확인 퀴즈 시계도).
     완료 방식은 보스를 시험으로 통과했으면 exam, 아니면 boss다.
     """
-    status = statuses(conn)
+    status = statuses(tx.conn)
     boss = next((m for m in chapter_core if m.kind == "boss"), None)
     if boss is None or any(status.get(m.key) not in DONE for m in chapter_core):
         return False
     # how로 정하면 시험 중 모범 답안을 본 보스(how=solution)가 boss로 잘못 남는다
-    by_exam = conn.execute(
+    by_exam = tx.conn.execute(
         "SELECT 1 FROM events WHERE kind = 'exam_passed' AND mission_key = ?", (boss.key,)
     ).fetchone()
-    via = "exam" if by_exam else "boss"
-    cursor = conn.execute(
+    cursor = tx.conn.execute(
         "UPDATE chapter_progress SET completed_at = ?, completed_via = ?"
         " WHERE chapter = ? AND completed_at IS NULL",
-        (at, via, boss.ch),
+        (tx.at, "exam" if by_exam else "boss", boss.ch),
     )
     return cursor.rowcount == 1
 
 
-def open_hint(conn: sqlite3.Connection, m: Mission, at: str) -> int:
+def open_hint(tx: Tx, m: Mission) -> int:
     """다음 단계 힌트를 연 것으로 기록하고 그 단계(1~3)를 돌려준다."""
-    conn.execute(
+    tx.conn.execute(
         "UPDATE mission_progress SET hints_used = hints_used + 1 WHERE mission_key = ?", (m.key,)
     )
-    level = progress_row(conn, m.key)["hints_used"]
-    event(conn, "hint_opened", m.key, at, {"level": level})
+    level = progress_row(tx.conn, m.key)["hints_used"]
+    event(tx, "hint_opened", m.key, {"level": level})
     return level
 
 
-def view_solution(conn: sqlite3.Connection, m: Mission, at: str) -> None:
+def view_solution(tx: Tx, m: Mission) -> None:
     """모범 답안을 본 것으로 기록한다. 이렇게 통과한 미션은 재구성 복습에 먼저 나온다."""
-    conn.execute("UPDATE mission_progress SET solution_seen = 1 WHERE mission_key = ?", (m.key,))
-    event(conn, "solution_viewed", m.key, at)
+    tx.conn.execute(
+        "UPDATE mission_progress SET solution_seen = 1 WHERE mission_key = ?", (m.key,)
+    )
+    event(tx, "solution_viewed", m.key)
 
 
-def exempt_rest_of_chapter(conn: sqlite3.Connection, missions: tuple[Mission, ...], boss: Mission,
-                           at: str) -> list[tuple[Mission, int]]:
+def exempt_rest_of_chapter(tx: Tx, missions: tuple[Mission, ...],
+                           boss: Mission) -> list[tuple[Mission, int]]:
     """시험으로 보스를 통과한 뒤: 그 장의 남은 코어 미션(장애 포함)을 면제하고 각각 50%를 준다.
 
     선택 미션은 면제하지 않는다(Spec "승급 시험"). (미션, 받은 XP) 목록을 돌려준다.
     """
-    status = statuses(conn)
+    status = statuses(tx.conn)
     rest = [m for m in chapter_core(missions, boss.ch)
             if m.key != boss.key and status.get(m.key) not in DONE]
     exempted = []
     for m in rest:
         xp = rewards.exam_skip_xp(m.xp)
-        conn.execute(
+        tx.conn.execute(
             "INSERT INTO mission_progress (mission_key, display_id, chapter, status, how,"
             " completed_at, xp_awarded, est_min, ai_tag)"
             " VALUES (?, ?, ?, 'exempted', 'exam_skip', ?, ?, ?, ?)"
             " ON CONFLICT (mission_key) DO UPDATE SET status = 'exempted', how = 'exam_skip',"
             " completed_at = excluded.completed_at, xp_awarded = excluded.xp_awarded",
-            (m.key, m.id, m.ch, at, xp, m.est_min, m.ai),
+            (m.key, m.id, m.ch, tx.at, xp, m.est_min, m.ai),
         )
-        event(conn, "mission_exempted", m.key, at, {"xp": xp})
+        event(tx, "mission_exempted", m.key, {"xp": xp})
         exempted.append((m, xp))
     return exempted

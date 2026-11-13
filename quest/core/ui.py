@@ -4,6 +4,8 @@ import os
 import sys
 import unicodedata
 
+from quest.core.mission import Mission
+
 KIND_ICONS = {
     "ops": "🎫", "quiz": "🧠", "predict": "🔮", "drill": "⌨️",
     "decision": "⚖️", "audit": "🔍", "incident": "🚨", "boss": "🏁",
@@ -25,8 +27,8 @@ def bar(done: int, total: int, width: int = 20) -> str:
     return "█" * filled + "░" * (width - filled) + f" {done}/{total}"
 
 
-def mission_line(m_id: str, kind: str, title: str, ai: str, est_min: int) -> str:
-    return f"{m_id} {KIND_ICONS[kind]} {title} {AI_TAGS[ai]} · 약 {est_min}분"
+def mission_line(m: Mission) -> str:
+    return f"{m.id} {KIND_ICONS[m.kind]} {m.title} {AI_TAGS[m.ai]} · 약 {m.est_min}분"
 
 
 def display_width(text: str) -> int:

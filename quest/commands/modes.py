@@ -34,11 +34,10 @@ def cmd_exam(game: Game, rest: list[str]) -> int:
     if refusal := _exam_refusal(game, status.get(boss.key)):
         print(refusal)
         return USAGE
-    at = state.now_utc()
-    with state.transaction(conn):
-        progress.start(conn, boss, at)
-        progress.set_mode(conn, "exam", boss.key, at)
-        progress.event(conn, "exam_started", boss.key, at)
+    with state.transaction(conn) as tx:
+        progress.start(tx, boss)
+        progress.set_mode(tx, "exam", boss.key)
+        progress.event(tx, "exam_started", boss.key)
     left = [m for m in game.missions if m.ch == boss.ch and m.track == "core"
             and m.key != boss.key and status.get(m.key) not in progress.DONE]
     print(ui.paint(f"🏁 승급 시험: {line(boss)}", "bold"))
@@ -53,10 +52,9 @@ def cmd_back(game: Game, rest: list[str]) -> int:
     if current_mode == "normal":
         print("이미 일반 진행입니다.")
         return OK
-    at = state.now_utc()
-    with state.transaction(conn):
+    with state.transaction(conn) as tx:
         kind = "exam_left" if current_mode == "exam" else "rebuild_left"
-        progress.event(conn, kind, progress.mode_mission(conn), at)
-        progress.set_mode(conn, "normal", None, at)
+        progress.event(tx, kind, progress.mode_mission(conn))
+        progress.set_mode(tx, "normal", None)
     print(f"{ui.MODES[current_mode]}를 끝내고 일반 진행으로 돌아왔습니다.")
     return OK

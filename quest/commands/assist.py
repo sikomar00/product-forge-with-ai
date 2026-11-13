@@ -1,6 +1,7 @@
 """IA-4 힌트, IA-5 모범 답안."""
 
 import sqlite3
+from dataclasses import replace
 
 from quest.commands.ask import confirm
 from quest.commands.common import OK, USAGE, Game, target
@@ -43,16 +44,16 @@ def cmd_hint(game: Game, rest: list[str]) -> int:
     if used >= len(m.hints):
         print("힌트 3단계를 모두 봤습니다. 그래도 막히면 quest solution")
         return OK
-    before = rewards.mission_xp(m.xp, used, row["fails"], row["solution_seen"])
-    after = rewards.mission_xp(m.xp, used + 1, row["fails"], row["solution_seen"])
+    now = rewards.Help.of(row)
+    before = rewards.mission_xp(m.xp, now)
+    after = rewards.mission_xp(m.xp, replace(now, hints=used + 1))
     question = f"💡 힌트 {used + 1}단계를 엽니다. {_reward_note(game, m, (before, after))}. 열까요?"
     if not confirm(question):
         print("열지 않았습니다.")
         return OK
-    at = state.now_utc()
-    with state.transaction(game.conn):
-        progress.start(game.conn, m, at)
-        level = progress.open_hint(game.conn, m, at)
+    with state.transaction(game.conn) as tx:
+        progress.start(tx, m)
+        level = progress.open_hint(tx, m)
     print(ui.paint(f"💡 힌트 {level}/{len(m.hints)}", "yellow"))
     print(spoiler.reveal(m.hints[level - 1]))
     if level == len(m.hints):
@@ -68,17 +69,17 @@ def cmd_solution(game: Game, rest: list[str]) -> int:
         print("이 미션에는 모범 답안이 없습니다.")
         return OK
     if row["status"] == "in_progress" and not row["solution_seen"]:
-        before = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], False)
-        after = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], True)
+        now = rewards.Help.of(row)
+        before = rewards.mission_xp(m.xp, now)
+        after = rewards.mission_xp(m.xp, replace(now, solution_seen=True))
         question = (f"📖 모범 답안을 봅니다. {_reward_note(game, m, (before, after))}. "
                     "재구성 복습에 먼저 나옵니다. 볼까요?")
         if not confirm(question):
             print("보지 않았습니다.")
             return OK
-        at = state.now_utc()
-        with state.transaction(game.conn):
-            progress.start(game.conn, m, at)
-            progress.view_solution(game.conn, m, at)
+        with state.transaction(game.conn) as tx:
+            progress.start(tx, m)
+            progress.view_solution(tx, m)
     print(ui.paint("📖 모범 답안", "bold"))
     print(spoiler.reveal(m.solution))
     return OK

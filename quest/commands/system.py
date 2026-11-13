@@ -93,8 +93,8 @@ def cmd_reset(game: Game, rest: list[str]) -> int:
             f" 확인하세요. 지금 기록은 그대로이고 백업은 {backup}에 있습니다."
         ) from exc
     fresh = state.connect()
-    with state.transaction(fresh):
-        progress.event(fresh, "reset_backup", None, state.now_utc(), {"backup": backup.name})
+    with state.transaction(fresh) as tx:
+        progress.event(tx, "reset_backup", None, {"backup": backup.name})
     fresh.close()
     print(f"초기화했습니다. 백업: {backup}")
     print(f"되돌리려면 게임을 끈 상태에서 이 파일을 {state.db_path()}로 복사하세요.")

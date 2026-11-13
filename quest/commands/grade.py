@@ -65,14 +65,14 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
         passed = all(a.correct for a in gate)
         if not passed:
             print("설명 게이트에 틀린 문항이 있어 아직 통과가 아닙니다.")
-    return progress.Attempt(checks, passed, state.now_utc(), versions(game.conn), responses)
+    return progress.Attempt(checks, passed, versions(game.conn), responses)
 
 
-def _finish_exam(game: Game, boss: Mission, at: str) -> list[tuple[Mission, int]]:
+def _finish_exam(tx: state.Tx, game: Game, boss: Mission) -> list[tuple[Mission, int]]:
     """시험 모드에서 보스를 통과했다: 남은 코어 미션 면제, exam_passed, 일반 모드로."""
-    exempted = progress.exempt_rest_of_chapter(game.conn, game.missions, boss, at)
-    progress.event(game.conn, "exam_passed", boss.key, at, {"exempted": len(exempted)})
-    progress.set_mode(game.conn, "normal", None, at)
+    exempted = progress.exempt_rest_of_chapter(tx, game.missions, boss)
+    progress.event(tx, "exam_passed", boss.key, {"exempted": len(exempted)})
+    progress.set_mode(tx, "normal", None)
     return exempted
 
 
@@ -87,35 +87,34 @@ class Saved:
     badges: list[str] = field(default_factory=list)  # 이번에 새로 얻은 배지 키
 
 
-def _pass_new(game: Game, m: Mission, at: str, saved: Saved) -> None:
-    conn = game.conn
-    row = progress.progress_row(conn, m.key)
-    if progress.was_exempted(conn, m.key):  # 다시 하기: 보상은 면제 때 받은 그대로(Spec)
-        progress.pass_mission(conn, m, row["xp_awarded"], at)
-        saved.redone = True
-        return
-    saved.xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
-    in_exam = progress.is_exam_target(conn, m.key)
-    progress.pass_mission(conn, m, saved.xp, at)
+def _pass_new(tx: state.Tx, game: Game, m: Mission) -> Saved:
+    row = progress.progress_row(tx.conn, m.key)
+    if progress.was_exempted(tx.conn, m.key):  # 다시 하기: 보상은 면제 때 받은 그대로(Spec)
+        progress.pass_mission(tx, m, row["xp_awarded"])
+        return Saved(redone=True)
+    saved = Saved(xp=rewards.mission_xp(m.xp, rewards.Help.of(row)))
+    in_exam = progress.is_exam_target(tx.conn, m.key)
+    progress.pass_mission(tx, m, saved.xp)
     if in_exam:
-        saved.exempted = _finish_exam(game, m, at)
-    progress.complete_chapter_if_done(conn, progress.chapter_core(game.missions, m.ch), at)
+        saved.exempted = _finish_exam(tx, game, m)
+    progress.complete_chapter_if_done(tx, progress.chapter_core(game.missions, m.ch))
+    return saved
 
 
 def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     """시도를 한 트랜잭션으로 기록한다."""
-    conn, saved = game.conn, Saved()
-    rebuilding = progress.is_rebuild_target(conn, m.key)
-    with state.transaction(conn):
-        progress.start(conn, m, attempt.at)
-        progress.record_attempt(conn, m, attempt)
-        if attempt.passed and progress.progress_row(conn, m.key)["status"] == "in_progress":
-            _pass_new(game, m, attempt.at, saved)
-            saved.badges = badges.award(conn, m, attempt.at)
+    saved = Saved()
+    rebuilding = progress.is_rebuild_target(game.conn, m.key)
+    with state.transaction(game.conn) as tx:
+        progress.start(tx, m)
+        progress.record_attempt(tx, m, attempt)
+        if attempt.passed and progress.progress_row(tx.conn, m.key)["status"] == "in_progress":
+            saved = _pass_new(tx, game, m)
+            saved.badges = badges.award(tx, m)
         if attempt.passed and rebuilding:
             saved.rebuilt = rewards.rebuild_xp(m.xp)
-            progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": saved.rebuilt})
-            progress.set_mode(conn, "normal", None, attempt.at)
+            progress.event(tx, "rebuild_passed", m.key, {"xp": saved.rebuilt})
+            progress.set_mode(tx, "normal", None)
     return saved
 
 

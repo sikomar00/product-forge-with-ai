@@ -8,7 +8,7 @@ import sqlite3
 
 from quest.core import review
 from quest.core.mission import Mission
-from quest.core.state import KST, parse_utc
+from quest.core.state import KST, Tx, parse_utc
 
 ENGINE_BADGES = {
     "first_pass": "🎫 첫 미션 통과",
@@ -52,13 +52,13 @@ def _due(conn: sqlite3.Connection, at: str) -> list[str]:
     return [key for key, met in rules.items() if met]
 
 
-def award(conn: sqlite3.Connection, passed: Mission | None, at: str) -> list[str]:
+def award(tx: Tx, passed: Mission | None) -> list[str]:
     """조건을 만족한 배지를 주고, 이번에 새로 얻은 키를 돌려준다. passed는 방금 통과한 미션."""
-    keys = _due(conn, at) + ([passed.badge] if passed and passed.badge else [])
+    keys = _due(tx.conn, tx.at) + ([passed.badge] if passed and passed.badge else [])
     new = []
     for key in keys:
-        cursor = conn.execute(
-            "INSERT OR IGNORE INTO badges (badge_key, earned_at) VALUES (?, ?)", (key, at)
+        cursor = tx.conn.execute(
+            "INSERT OR IGNORE INTO badges (badge_key, earned_at) VALUES (?, ?)", (key, tx.at)
         )
         if cursor.rowcount:
             new.append(key)

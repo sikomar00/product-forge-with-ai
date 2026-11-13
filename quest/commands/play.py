@@ -52,8 +52,8 @@ def cmd_mission(game: Game, rest: list[str]) -> int:
     m, code = target(game, rest)
     if m is None:
         return code
-    with state.transaction(game.conn):
-        progress.start(game.conn, m, state.now_utc())
+    with state.transaction(game.conn) as tx:
+        progress.start(tx, m)
     track = "코어" if m.track == "core" else "➕선택"
     print(ui.paint(f"{line(m)} · {track} · {ui.SCAFFOLDS[m.scaffold]}", "bold"))
     print(f"\n📨 {m.frm}\n{m.msg}")

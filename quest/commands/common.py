@@ -97,8 +97,8 @@ def lock_view(game: Game) -> tuple[bool, int, int]:
 def lock_state(game: Game) -> tuple[bool, int, int]:
     """lock_view와 같고, 잠금 on·off 변화를 기록한다. 새 미션 시작·시험·복습 끝에서 쓴다(M0-13)."""
     is_locked, due, threshold = lock_view(game)
-    with state.transaction(game.conn):
-        review.sync_lock(game.conn, due, threshold, state.now_utc())
+    with state.transaction(game.conn) as tx:
+        review.sync_lock(tx, due, threshold)
     return is_locked, due, threshold
 
 
@@ -117,6 +117,5 @@ def blocked_by_lock(game: Game, m: Mission) -> bool:
     return is_locked
 
 
-def line(m: Mission) -> str:
-    return ui.mission_line(m.id, m.kind, m.title, m.ai, m.est_min)
+line = ui.mission_line  # 미션 한 줄: ID, 유형 아이콘, 제목, AI 태그, 예상 시간
 
