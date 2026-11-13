@@ -37,6 +37,7 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     # 트랜잭션은 transaction()으로 직접 연다. 열린 트랜잭션 안에서는 PRAGMA foreign_keys가 무시된다.
     conn = sqlite3.connect(path, autocommit=True)
+    conn.row_factory = sqlite3.Row  # 번호와 칸 이름 둘 다로 읽는다
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         _ensure_schema(conn)
