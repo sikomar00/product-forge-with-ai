@@ -35,7 +35,7 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 
 ## 사용자 작업 (필요한 시점에 다시 알려 드린다)
 1. (T0-0) 문서 브랜치 `claude/harness-setup`을 main에 머지하는 PR을 승인한다. 지난 브랜치 `claude/design-v0.3` 삭제도 GitHub에서 직접 한다(세션에서는 삭제가 막혀 있다).
-2. (T0-1 전, 완료 2026-11-13) Windows에 uv·Python 3.14를 깔았다. (맥으로 옮길 때) 맥에서 먼저 `scripts/check-mac.sh`로 이미 설치된 것과 빠진 것을 본다(읽기만 하고 아무것도 설치하지 않는다). 리포를 받기 전이면 스크립트만 받아 읽어 본 뒤 실행한다: `curl -fsSL https://raw.githubusercontent.com/sikomar00/product-forge-with-ai/engine/windows-setup/scripts/check-mac.sh -o check-mac.sh && bash check-mac.sh`. 마지막에 나오는 '필요한 것'만 차례로 하고, 엔진을 받은 뒤에는 `uv run quest doctor`로 다시 본다. 그다음 맥에서 엔진 리포를 `git clone`하고 작업 브랜치를 받은 뒤 `uv sync`를 하고, 맥 로컬 Claude Code를 엔진 리포에서 연다(CLAUDE.md 하네스가 자동으로 적용된다).
+2. (T0-1 전, 완료 2026-11-13) Windows에 uv·Python 3.14를 깔았다. (맥으로 옮길 때) 맥에서 먼저 `scripts/check-mac.sh`로 이미 설치된 것과 빠진 것을 본다(읽기만 하고 아무것도 설치하지 않는다). 리포를 받기 전이면 스크립트만 받아 읽어 본 뒤 실행한다: `curl -fsSL https://raw.githubusercontent.com/sikomar00/product-forge-with-ai/main/scripts/check-mac.sh -o check-mac.sh && bash check-mac.sh`. 마지막에 나오는 '필요한 것'만 차례로 하고, 엔진을 받은 뒤에는 `uv run quest doctor`로 다시 본다. 그다음 맥에서 엔진 리포를 `git clone`하고(main, PR #3으로 머지됨) `uv sync`를 하고, 맥 로컬 Claude Code를 엔진 리포에서 연다(CLAUDE.md 하네스가 자동으로 적용된다).
 3. (T1-6 전) GitHub에서 비공개 리포 `product-forge-content`를 만들고, 콘텐츠 작업용 클라우드 세션에 연결한다.
 4. (T1-9 전, 2장 출시 점검) 자동화 전용 GitHub 머신 계정 1개를 만들고, 토큰을 `product-forge-content`의 Actions 비밀값에 직접 넣는다. 채팅에는 붙이지 않는다.
 5. (UJ-1) 맥에서 `gh auth login`을 한다. `quest update`가 처음에 `gh auth setup-git`을 안내한다.

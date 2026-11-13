@@ -10,7 +10,6 @@
 set -u
 
 S1_COMMIT="513ec5891c7fdea0ae01c9cec14505c3103e8e09"  # tests/s1_adapter.py와 같다
-ENGINE_BRANCH="engine/windows-setup"
 UV_MIN="0.13.6"
 
 pass=0
@@ -84,11 +83,10 @@ check_engine_repo() {  # check_engine_repo <위치>
   ok "엔진 리포($repo)"
   local branch
   branch=$(git -C "$repo" symbolic-ref --short -q HEAD)
-  if [ "$branch" = "$ENGINE_BRANCH" ] || [ "$branch" = "main" ]; then
-    ok "브랜치 $branch"
-  else
-    no "브랜치가 $branch" "git -C $repo switch $ENGINE_BRANCH"
-  fi
+  case "$branch" in
+    main | engine/*) ok "브랜치 $branch" ;;
+    *) no "브랜치가 $branch" "git -C $repo switch main" ;;
+  esac
   if [ -d "$repo/.venv" ]; then ok "엔진 의존성(.venv)"; else no "엔진 의존성 설치 전" "cd $repo && uv sync"; fi
 }
 
