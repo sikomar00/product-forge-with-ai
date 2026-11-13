@@ -223,6 +223,10 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 공통 규칙: 결과는 `Result`로 돌려준다. "없음"·"다름"은 `ok=False`이지 예외가 아니다. 도구가 없거나 네트워크가 끊긴 것처럼 환경 문제일 때만 `CheckEnvError`를 낸다(시도는 `error`).
 - 모듈별 근거 데이터(design.md 8.4절): `fs`(pathlib), `shell`(subprocess, 상태를 바꾸지 않는 명령만), `ssh`(랩 VM에서 명령 실행), `git`(git CLI의 porcelain·format 출력), `github`(`gh api`의 JSON, `ctx.gh`를 거쳐 기록 재생 가능), `http`(표준 라이브러리 `urllib`·`ssl`. httpx를 쓸지는 Plan).
 - 읽기 전용 시험(NF-02): 프리미티브를 실행하기 전후로 대상의 상태(파일 해시, `git status --porcelain`과 HEAD)가 같아야 한다.
+- (T1-1 구현, `quest/checks/`) 결과를 바로 쓰는 함수는 `Result`를, 값을 꺼내는 함수(`fs.json_value`, `github.value`, `http.json_value`, `git.branch` 등)는 값 또는 `MISSING`을 돌려준다. 비교는 콘텐츠가 `checks.verdict()`로 한다.
+- `shell`·`ssh`는 읽기 전용 허용 목록(cat·ls·grep·systemctl is-active 등, `<도구> --version`)의 명령만 실행하고, 그 밖은 `ValueError`(콘텐츠 작성 오류 → 시도는 error). `find`는 `-delete`·`-exec`가 있어 넣지 않았다. `git`은 `--no-optional-locks`로 인덱스도 건드리지 않는다.
+- `ssh`는 `orb -m <머신> <명령>`으로 실행한다(맥 미확인, T1-4에서 확인). `http`에서 서버 무응답은 실패, 인증서 문제는 `CheckEnvError`다.
+- `ctx.gh`: 실제 명령은 `GhLive`(`gh api`, GET만, 404는 `MISSING`), 플레이스루는 `GhReplay`(기록 파일), 출시 점검은 `GhRecorder`(실제 호출을 기록)를 쓴다. 기록 파일에서 없던 리소스는 `{"__missing__": true}`다.
 
 ### `quest doctor` (M1-02, M0-19)
 
