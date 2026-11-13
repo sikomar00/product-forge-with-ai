@@ -33,14 +33,10 @@ def _responses(context: str, answered: list[Answered]) -> list[tuple[str, int, b
     return [(context, a.item.no, a.correct, a.confidence) for a in answered]
 
 
-def _rebuilding(game: Game, m: Mission) -> bool:
-    return progress.mode(game.conn) == "review" and progress.mode_mission(game.conn) == m.key
-
-
 def _ctx_for(game: Game, m: Mission) -> Ctx:
     """재구성 복습 중이면 샌드박스를, 아니면 OpsDesk 리포를 채점한다."""
     ctx = make_ctx(game.cfg)
-    if _rebuilding(game, m):
+    if progress.is_rebuild_target(game.conn, m.key):
         return replace(ctx, workdir=review.sandbox_path(m.id, progress.mode_started(game.conn)))
     return ctx
 
@@ -85,16 +81,19 @@ def _save(
 ) -> tuple[int | None, list[tuple[Mission, int]], int | None]:
     """시도를 한 트랜잭션으로 기록하고 (미션 보상, 시험 면제 목록, 재구성 보상)을 돌려준다."""
     conn, xp, exempted, rebuilt = game.conn, None, [], None
-    rebuilding = _rebuilding(game, m)
+    rebuilding = progress.is_rebuild_target(conn, m.key)
     with state.transaction(conn):
         progress.start(conn, m, attempt.at)
         progress.record_attempt(conn, m, attempt)
         row = progress.progress_row(conn, m.key)
         if attempt.passed and row["status"] == "in_progress":
             xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
+            in_exam = progress.is_exam_target(conn, m.key)
             progress.pass_mission(conn, m, xp, attempt.at)
-            if progress.mode(conn) == "exam" and progress.mode_mission(conn) == m.key:
+            if in_exam:
                 exempted = _finish_exam(game, m, attempt.at)
+            chapter_core = [c for c in game.missions if c.ch == m.ch and c.track == "core"]
+            progress.complete_chapter_if_done(conn, chapter_core, attempt.at)
         if attempt.passed and rebuilding:
             rebuilt = rewards.rebuild_xp(m.xp)
             progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": rebuilt})

@@ -20,7 +20,7 @@ FORMAT_GUIDE = {
 
 def _numbers(text: str) -> list[int] | None:
     parts = [p for p in re.split(r"[,\s]+", text.strip()) if p]
-    if not parts or not all(p.isdigit() for p in parts):
+    if not parts or not all(p.isdecimal() for p in parts):  # isdigit는 ²·① 도 참이라 int()가 깨진다
         return None
     return [int(p) for p in parts]
 

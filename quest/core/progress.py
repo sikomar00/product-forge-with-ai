@@ -90,10 +90,6 @@ def total_xp(conn: sqlite3.Connection) -> int:
     return missions.fetchone()[0] + rebuilds.fetchone()[0]
 
 
-def due_cards(conn: sqlite3.Connection) -> int:
-    return conn.execute("SELECT due FROM v_due_cards").fetchone()[0]
-
-
 def active_incident(conn: sqlite3.Connection) -> bool:
     return conn.execute("SELECT 1 FROM incidents WHERE status = 'active'").fetchone() is not None
 
@@ -161,15 +157,11 @@ def record_attempt(conn: sqlite3.Connection, m: Mission, attempt: Attempt) -> in
 
 
 def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None:
-    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다.
-
-    보스를 통과하면 장을 끝낸다. 시험 모드면 완료 방식이 exam이다.
-    """
-    in_exam = mode(conn) == "exam" and mode_mission(conn) == m.key
+    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다."""
     if progress_row(conn, m.key)["solution_seen"]:
         how = "solution"
     else:
-        how = "exam" if in_exam else "normal"
+        how = "exam" if is_exam_target(conn, m.key) else "normal"
     conn.execute(
         "UPDATE mission_progress SET status = 'passed', how = ?, completed_at = ?, xp_awarded = ?"
         " WHERE mission_key = ?",
@@ -182,12 +174,36 @@ def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None
         [(c.key, m.key, c.kind, at, due) for c in m.cards],
     )
     event(conn, "mission_passed", m.key, at, {"xp": xp})
-    if m.kind == "boss":
-        conn.execute(
-            "UPDATE chapter_progress SET completed_at = ?, completed_via = ?"
-            " WHERE chapter = ? AND completed_at IS NULL",
-            (at, "exam" if in_exam else "boss", m.ch),
-        )
+
+
+def is_exam_target(conn: sqlite3.Connection, key: str) -> bool:
+    """시험 모드이고 그 대상(보스)이 이 미션인지."""
+    return mode(conn) == "exam" and mode_mission(conn) == key
+
+
+def is_rebuild_target(conn: sqlite3.Connection, key: str) -> bool:
+    """재구성 복습 중이고 그 대상이 이 미션인지."""
+    return mode(conn) == "review" and mode_mission(conn) == key
+
+
+def complete_chapter_if_done(conn: sqlite3.Connection, chapter_core: list[Mission],
+                             at: str) -> bool:
+    """장의 보스를 통과했고 코어 미션이 모두 통과·면제면 장을 끝낸다. 끝냈으면 True.
+
+    보스를 ID로 먼저 통과해도 남은 코어 미션이 있으면 장은 끝나지 않는다(지연 확인 퀴즈 시계도).
+    완료 방식은 보스를 시험으로 통과했으면 exam, 아니면 boss다.
+    """
+    status = statuses(conn)
+    boss = next((m for m in chapter_core if m.kind == "boss"), None)
+    if boss is None or any(status.get(m.key) not in DONE for m in chapter_core):
+        return False
+    via = "exam" if progress_row(conn, boss.key)["how"] == "exam" else "boss"
+    cursor = conn.execute(
+        "UPDATE chapter_progress SET completed_at = ?, completed_via = ?"
+        " WHERE chapter = ? AND completed_at IS NULL",
+        (at, via, boss.ch),
+    )
+    return cursor.rowcount == 1
 
 
 def open_hint(conn: sqlite3.Connection, m: Mission, at: str) -> int:

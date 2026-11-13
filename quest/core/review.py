@@ -8,6 +8,7 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
+from quest.core.config import EnvError
 from quest.core.progress import event
 from quest.core.state import KST, format_utc, parse_utc
 
@@ -22,11 +23,13 @@ def next_box(box: int, correct: bool) -> int:
     return min(5, box + 1) if correct else 1
 
 
-def due_cards(conn: sqlite3.Connection, limit: int = MAX_CARDS) -> list[sqlite3.Row]:
-    """만기가 오래된 순서로 최대 limit장."""
+def due_cards(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """만기가 된 카드 전부, 만기가 오래된 순서. 콘텐츠에 있는 카드만 고르는 것은 명령이 한다.
+
+    지운 미션의 카드는 DB에 남는다. 그 카드까지 세면 복습 잠금이 영영 풀리지 않는다.
+    """
     return conn.execute(
-        f"SELECT card_key, box FROM cards WHERE due_at <= {_NOW} ORDER BY due_at LIMIT ?",
-        (limit,),
+        f"SELECT card_key, box FROM cards WHERE due_at <= {_NOW} ORDER BY due_at"
     ).fetchall()
 
 
@@ -63,25 +66,21 @@ def streak(conn: sqlite3.Connection, today: date) -> int:
 
 
 def lock_threshold(cfg: dict) -> int:
-    return int(cfg.get("review", {}).get("lock_threshold", DEFAULT_LOCK))
+    value = cfg.get("review", {}).get("lock_threshold", DEFAULT_LOCK)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise EnvError(f"설정 파일의 [review] lock_threshold는 0 이상의 정수여야 합니다: {value!r}")
+    return value
 
 
-def locked(conn: sqlite3.Connection, threshold: int) -> bool:
-    return conn.execute("SELECT due FROM v_due_cards").fetchone()[0] >= threshold
-
-
-def sync_lock(conn: sqlite3.Connection, threshold: int, at: str) -> bool:
-    """잠금 상태가 바뀌었으면 review_lock_on·off를 남기고 지금 잠겼는지 돌려준다."""
-    now_locked = locked(conn, threshold)
+def sync_lock(conn: sqlite3.Connection, now_locked: bool, at: str) -> None:
+    """잠금 상태가 바뀌었으면 review_lock_on·off를 남긴다."""
     last = conn.execute(
         "SELECT kind FROM events WHERE kind IN ('review_lock_on', 'review_lock_off')"
         " ORDER BY event_id DESC LIMIT 1"
     ).fetchone()
     was_locked = last is not None and last[0] == "review_lock_on"
     if now_locked != was_locked:
-        event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at,
-              {"due": conn.execute("SELECT due FROM v_due_cards").fetchone()[0]})
-    return now_locked
+        event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at)
 
 
 # ───────────── 재구성 복습 ─────────────

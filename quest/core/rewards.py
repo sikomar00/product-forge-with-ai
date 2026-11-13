@@ -5,6 +5,8 @@ ONE_SHOT_RATE = 0.2
 HINT_PENALTY = 0.2
 MIN_RATE = 0.4
 EXAM_SKIP_RATE = 0.5
+REBUILD_RATE = 0.15
+REBUILD_MIN = 3
 
 
 def mission_xp(xp: int, hints: int, fails: int, solution_seen: bool) -> int:
@@ -24,4 +26,4 @@ def exam_skip_xp(xp: int) -> int:
 
 def rebuild_xp(xp: int) -> int:
     """재구성 복습 통과 보상. rebuild_passed 이벤트 값으로 남는다(Spec "보상")."""
-    return max(3, round(xp * 0.15))
+    return max(REBUILD_MIN, round(xp * REBUILD_RATE))

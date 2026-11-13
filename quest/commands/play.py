@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from quest.commands.common import OK, Game, line, mode_target, target
+from quest.commands.common import OK, Game, line, lock_state, mode_target, target
 from quest.core import progress, review, state, ui
 from quest.core.mission import CHECK_KINDS, Mission
 
@@ -16,9 +16,9 @@ def cmd_home(game: Game, rest: list[str]) -> int:
     if progress.active_incident(conn):
         print(ui.paint("🚨 진행 중인 장애가 있습니다. quest incident status", "red"))
     ch = m.ch if m else game.missions[-1].ch
-    threshold = review.lock_threshold(game.cfg)
-    if review.locked(conn, threshold):
-        print(ui.paint(f"🔒 복습 잠금: 만기 카드 {progress.due_cards(conn)}장. "
+    is_locked, due, threshold = lock_state(game)
+    if is_locked:
+        print(ui.paint(f"🔒 복습 잠금: 만기 카드 {due}장. "
                        f"quest review로 {threshold}장 아래로 줄이면 풀립니다.", "yellow"))
     today = datetime.now(state.KST).date()
     head = (f"🔨 Product Forge · {progress.rank(ch)} · {progress.total_xp(conn)} XP"
@@ -26,7 +26,7 @@ def cmd_home(game: Game, rest: list[str]) -> int:
     print(ui.paint(head, "bold"))
     done, total = progress.chapter_counts(game.missions, status, ch)
     print(f"{ch}장 {progress.CHAPTERS[ch]}  {ui.bar(done, total)}")
-    print(f"오늘 복습할 카드: {progress.due_cards(conn)}장")
+    print(f"오늘 복습할 카드: {due}장")
     if m is None:
         print("🎉 모든 코어 미션을 마쳤습니다.")
         return OK

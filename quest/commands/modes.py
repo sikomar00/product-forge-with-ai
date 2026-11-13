@@ -1,7 +1,7 @@
 """IA-7 승급 시험, IA-8 돌아가기(M0-14, Spec "승급 시험")."""
 
-from quest.commands.common import OK, USAGE, Game, line
-from quest.core import progress, review, state, ui
+from quest.commands.common import OK, USAGE, Game, line, lock_state
+from quest.core import progress, state, ui
 
 NO_EXAM_CHAPTERS = (0, 17)  # 0장은 환경을 만들고, 17장은 처음부터 끝까지 해 보는 것이 목적이다
 
@@ -9,9 +9,8 @@ NO_EXAM_CHAPTERS = (0, 17)  # 0장은 환경을 만들고, 17장은 처음부터
 def _exam_refusal(game: Game, boss_status: str | None) -> str | None:
     if boss_status in progress.DONE:
         return "이 장의 보스는 이미 통과했습니다."
-    with state.transaction(game.conn):
-        if review.sync_lock(game.conn, review.lock_threshold(game.cfg), state.now_utc()):
-            return "🔒 복습 잠금 중에는 시험을 시작하지 않습니다. 먼저 quest review"
+    if lock_state(game)[0]:
+        return "🔒 복습 잠금 중에는 시험을 시작하지 않습니다. 먼저 quest review"
     return None
 
 

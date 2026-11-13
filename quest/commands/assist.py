@@ -2,7 +2,8 @@
 
 import sqlite3
 
-from quest.commands.common import OK, Game, confirm, target
+from quest.commands.ask import confirm
+from quest.commands.common import OK, USAGE, Game, target
 from quest.core import progress, rewards, spoiler, state, ui
 from quest.core.mission import Mission
 
@@ -17,6 +18,9 @@ def _open_row(game: Game, rest: list[str]) -> tuple[Mission | None, dict | sqlit
     m, code = target(game, rest)
     if m is None:
         return None, NOT_STARTED, code
+    if progress.is_rebuild_target(game.conn, m.key):  # 답을 베껴 재구성 보상을 받지 못하게
+        print("재구성 복습 중에는 힌트와 모범 답안을 볼 수 없습니다. 그만두려면 quest back")
+        return None, NOT_STARTED, USAGE
     return m, progress.progress_row(game.conn, m.key) or NOT_STARTED, OK
 
 

@@ -23,6 +23,16 @@ def read(prompt: str) -> str | None:
         return None
 
 
+def is_yes(answer: str) -> bool:
+    return answer.strip().lower() in ("y", "yes", "ㅛ")  # ㅛ: 한글 자판 상태에서 누른 y
+
+
+def confirm(question: str) -> bool:
+    """[y/N] 질문. 그냥 Enter나 입력 끝(EOF)은 '아니오'다."""
+    answer = read(f"{question} [y/N] ")
+    return answer is not None and is_yes(answer)
+
+
 def ask_confidence() -> int | None:
     while (text := read(f"{CONFIDENCE}: ")) is not None:
         if text.strip() in ("1", "2", "3"):
@@ -64,7 +74,7 @@ def ask_card(card: Card) -> tuple[bool, int | None] | None:
             return None
         print(f"   {card.back}")
         answer = read("맞았나요? [y/N] ")
-        return None if answer is None else (answer.strip().lower() in ("y", "yes", "ㅛ"), None)
+        return None if answer is None else (is_yes(answer), None)
     for number, choice in enumerate(card.choices if card.grading == "choice" else (), 1):
         print(f"   {number}) {choice}")
     response = read("번호 하나: " if card.grading == "choice" else "답을 입력: ")

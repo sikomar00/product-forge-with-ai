@@ -1,7 +1,7 @@
 """IA-9 복습: 카드, 지연 확인 퀴즈, 재구성 복습 제안(M0-12·M0-13, Spec "복습")."""
 
-from quest.commands.ask import ask_card, ask_items
-from quest.commands.common import OK, USAGE, Game, confirm, line
+from quest.commands.ask import ask_card, ask_items, confirm
+from quest.commands.common import OK, USAGE, Game, due_now, line, lock_state
 from quest.core import progress, review, state, ui
 from quest.core.mission import CHECK_KINDS
 
@@ -9,7 +9,7 @@ from quest.core.mission import CHECK_KINDS
 def cmd_review(game: Game, rest: list[str]) -> int:
     conn = game.conn
     cards = {card.key: card for m in game.missions for card in m.cards}
-    due = [row for row in review.due_cards(conn) if row["card_key"] in cards]
+    due = due_now(game)[: review.MAX_CARDS]
     with state.transaction(conn):
         progress.event(conn, "review_started", None, state.now_utc(), {"cards": len(due)})
     print(ui.paint(f"🃏 오늘 복습할 카드: {len(due)}장", "bold"))
@@ -27,7 +27,7 @@ def cmd_review(game: Game, rest: list[str]) -> int:
     at = state.now_utc()
     with state.transaction(conn):
         progress.event(conn, "review_finished", None, at, {"cards": len(due), "correct": correct})
-        still_locked = review.sync_lock(conn, review.lock_threshold(game.cfg), at)
+    still_locked = lock_state(game)[0]
     days = review.streak(conn, state.parse_utc(at).astimezone(state.KST).date())
     print(f"\n복습 끝: {correct}/{len(due)} 맞힘 · 연속 복습 {days}일")
     if still_locked:

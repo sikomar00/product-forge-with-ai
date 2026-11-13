@@ -79,15 +79,26 @@ def mode_target(game: Game) -> Mission | None:
     return next((m for m in game.missions if m.key == key), None) if key else None
 
 
+def due_now(game: Game) -> list[sqlite3.Row]:
+    """지금 만기인 카드 가운데 콘텐츠에 있는 것(만기가 오래된 순서)."""
+    known = {card.key for m in game.missions for card in m.cards}
+    return [row for row in review.due_cards(game.conn) if row["card_key"] in known]
+
+
+def lock_state(game: Game) -> tuple[bool, int, int]:
+    """(잠겼는지, 만기 카드 수, 기준). 잠금 on·off 변화도 기록한다(M0-13)."""
+    due, threshold = len(due_now(game)), review.lock_threshold(game.cfg)
+    with state.transaction(game.conn):
+        review.sync_lock(game.conn, due >= threshold, state.now_utc())
+    return due >= threshold, due, threshold
+
+
 def blocked_by_lock(game: Game, m: Mission) -> bool:
     """새 미션을 시작하려는데 복습 잠금이면 안내하고 True. 진행 중·끝낸 미션은 막지 않는다."""
     if progress.progress_row(game.conn, m.key) is not None:
         return False
-    threshold = review.lock_threshold(game.cfg)
-    with state.transaction(game.conn):
-        is_locked = review.sync_lock(game.conn, threshold, state.now_utc())
+    is_locked, due, threshold = lock_state(game)
     if is_locked:
-        due = progress.due_cards(game.conn)
         print(f"🔒 복습 잠금: 만기 카드가 {due}장이라 새 미션을 열지 않습니다.")
         print(f"quest review로 {threshold}장 아래로 줄이면 바로 풀립니다.")
     return is_locked
@@ -95,12 +106,4 @@ def blocked_by_lock(game: Game, m: Mission) -> bool:
 
 def line(m: Mission) -> str:
     return ui.mission_line(m.id, m.kind, m.title, m.ai, m.est_min)
-
-
-def confirm(question: str) -> bool:
-    try:
-        answer = input(f"{question} [y/N] ")
-    except EOFError:
-        return False
-    return answer.strip().lower() in ("y", "yes", "ㅛ")  # ㅛ: 한글 자판 상태에서 누른 y
 
