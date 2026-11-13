@@ -10,6 +10,7 @@ from importlib.metadata import version
 from pathlib import Path
 from types import ModuleType
 
+from quest.core import spoiler
 from quest.core.config import EnvError
 from quest.core.mission import (
     AI_MODES,
@@ -29,7 +30,6 @@ from quest.core.mission import (
 MISSION_KEY = re.compile(r"m_[0-9a-f]{8}")
 CARD_KEY = re.compile(r"c_[0-9a-f]{8}")
 CHAPTER_FILE = re.compile(r"ch(\d{2})_\w+\.py")
-OBF_PREFIX = "obf1:"
 DELAYED_QUIZ_SIZE = 10
 _COMPARE = {
     ">=": operator.ge,
@@ -172,10 +172,6 @@ def _numbering(label: str, numbers: list[int]) -> list[str]:
     return [f"{label} 번호는 1부터 빈틈없이 이어져야 합니다: {numbers}"]
 
 
-def _is_obf(text: str) -> bool:
-    return text.startswith(OBF_PREFIX)
-
-
 def _mission_errors(m: Mission) -> list[str]:
     rules = [
         (MISSION_KEY.fullmatch(m.key) is None, f"미션 키 형식이 틀렸습니다: {m.key!r}"),
@@ -186,8 +182,9 @@ def _mission_errors(m: Mission) -> list[str]:
         (m.scaffold not in SCAFFOLDS, f"알 수 없는 스캐폴드: {m.scaffold!r}"),
         (m.est_min <= 0, f"est_min은 0보다 커야 합니다: {m.est_min}"),
         (len(m.hints) != 3, f"힌트는 3개여야 합니다: {len(m.hints)}개"),
-        (not all(map(_is_obf, m.hints)), "힌트는 난독화(obf1:)해야 합니다"),
-        (m.solution is not None and not _is_obf(m.solution), "모범 답안은 난독화해야 합니다"),
+        (not all(map(spoiler.decodes, m.hints)), "힌트는 난독화(obf1:)해야 합니다"),
+        (m.solution is not None and not spoiler.decodes(m.solution),
+         "모범 답안은 난독화해야 합니다"),
         (m.kind in CHECK_KINDS and not m.checks, f"{m.kind} 유형은 체크가 있어야 합니다"),
         (m.kind in ITEM_KINDS and not m.items, f"{m.kind} 유형은 문항이 있어야 합니다"),
     ]
@@ -213,7 +210,7 @@ def _card_errors(c: Card) -> list[str]:
 def _item_errors(i: Item) -> list[str]:
     rules = [
         (i.kind not in ITEM_FORMATS, f"알 수 없는 문항 형식: {i.kind!r}"),
-        (not _is_obf(i.answer), "정답은 난독화(obf1:)해야 합니다"),
+        (not spoiler.decodes(i.answer), "정답은 난독화(obf1:)해야 합니다"),
         (i.kind in ("choice", "multi", "order") and not i.choices, "보기가 없습니다"),
     ]
     return [f"문항 {i.no}: {message}" for broken, message in rules if broken]

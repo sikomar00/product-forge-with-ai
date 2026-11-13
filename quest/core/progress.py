@@ -133,3 +133,19 @@ def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None
         [(c.key, m.key, c.kind, at, due.strftime("%Y-%m-%dT%H:%M:%SZ")) for c in m.cards],
     )
     event(conn, "mission_passed", m.key, at, {"xp": xp})
+
+
+def open_hint(conn: sqlite3.Connection, m: Mission, at: str) -> int:
+    """다음 단계 힌트를 연 것으로 기록하고 그 단계(1~3)를 돌려준다."""
+    conn.execute(
+        "UPDATE mission_progress SET hints_used = hints_used + 1 WHERE mission_key = ?", (m.key,)
+    )
+    level = progress_row(conn, m.key)["hints_used"]
+    event(conn, "hint_opened", m.key, at, {"level": level})
+    return level
+
+
+def view_solution(conn: sqlite3.Connection, m: Mission, at: str) -> None:
+    """모범 답안을 본 것으로 기록한다. 이렇게 통과한 미션은 재구성 복습에 먼저 나온다."""
+    conn.execute("UPDATE mission_progress SET solution_seen = 1 WHERE mission_key = ?", (m.key,))
+    event(conn, "solution_viewed", m.key, at)

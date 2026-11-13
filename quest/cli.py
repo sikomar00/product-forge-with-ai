@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 
-from quest.core import config, content, progress, rewards, state, ui
+from quest.core import config, content, progress, rewards, spoiler, state, ui
 from quest.core.mission import CHECK_KINDS, Ctx, Mission
 from quest.kinds import ops
 
@@ -186,6 +186,75 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     return OK
 
 
+# ───────────── IA-4 힌트 · IA-5 모범 답안 ─────────────
+
+
+def _confirm(question: str) -> bool:
+    try:
+        answer = input(f"{question} [y/N] ")
+    except EOFError:
+        return False
+    return answer.strip().lower() in ("y", "yes", "ㅛ")  # ㅛ: 한글 자판 상태에서 누른 y
+
+
+def _open_row(game: Game, rest: list[str]) -> tuple[Mission | None, sqlite3.Row | None, int]:
+    """대상 미션을 시작 상태로 만들고 (미션, 진행 행, 종료 코드)를 돌려준다."""
+    m, code = _target(game, rest)
+    if m is None:
+        return None, None, code
+    with state.transaction(game.conn):
+        progress.start(game.conn, m, state.now_utc())
+    return m, progress.progress_row(game.conn, m.key), OK
+
+
+def cmd_hint(game: Game, rest: list[str]) -> int:
+    m, row, code = _open_row(game, rest)
+    if m is None:
+        return code
+    if row["status"] != "in_progress":
+        print("이미 끝낸 미션입니다. quest solution으로 모범 답안을 감점 없이 볼 수 있습니다.")
+        return OK
+    used = row["hints_used"]
+    if used >= len(m.hints):
+        print("힌트 3단계를 모두 봤습니다. 그래도 막히면 quest solution")
+        return OK
+    before = rewards.mission_xp(m.xp, used, row["fails"], row["solution_seen"])
+    after = rewards.mission_xp(m.xp, used + 1, row["fails"], row["solution_seen"])
+    question = f"💡 힌트 {used + 1}단계를 열면 보상이 {before} → {after} XP가 됩니다. 열까요?"
+    if not _confirm(question):
+        print("열지 않았습니다.")
+        return OK
+    with state.transaction(game.conn):
+        level = progress.open_hint(game.conn, m, state.now_utc())
+    print(ui.paint(f"💡 힌트 {level}/{len(m.hints)}", "yellow"))
+    print(spoiler.reveal(m.hints[level - 1]))
+    if level == len(m.hints):
+        print(ui.paint("그래도 막히면 quest solution", "dim"))
+    return OK
+
+
+def cmd_solution(game: Game, rest: list[str]) -> int:
+    m, row, code = _open_row(game, rest)
+    if m is None:
+        return code
+    if m.solution is None:
+        print("이 미션에는 모범 답안이 없습니다.")
+        return OK
+    if row["status"] == "in_progress" and not row["solution_seen"]:
+        before = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], False)
+        after = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], True)
+        question = (f"📖 모범 답안을 보면 보상이 {before} → {after} XP가 되고, "
+                    "재구성 복습에 먼저 나옵니다. 볼까요?")
+        if not _confirm(question):
+            print("보지 않았습니다.")
+            return OK
+        with state.transaction(game.conn):
+            progress.view_solution(game.conn, m, state.now_utc())
+    print(ui.paint("📖 모범 답안", "bold"))
+    print(spoiler.reveal(m.solution))
+    return OK
+
+
 # ───────────── IA-16 도움말 ─────────────
 
 
@@ -200,6 +269,8 @@ COMMANDS = {
     "": Command(cmd_home, "", "홈: 등급·XP·진행·현재 미션"),
     "mission": Command(cmd_mission, "[ID]", "미션 보기. ID를 빼면 현재 미션", max_args=1),
     "check": Command(cmd_check, "[ID]", "채점", max_args=1),
+    "hint": Command(cmd_hint, "[ID]", "다음 단계 힌트(감점)", max_args=1),
+    "solution": Command(cmd_solution, "[ID]", "모범 답안(보상 20%만)", max_args=1),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }
 
