@@ -111,3 +111,13 @@ def test_check_changes_nothing(mac: dict) -> None:
     _run(mac)
     after = sorted(p.relative_to(mac["repo"]) for p in mac["repo"].rglob("*"))
     assert before == after and list(mac["home"].iterdir()) == []
+
+
+def test_without_xcode_tools_git_stub_is_not_run(mac: dict, tmp_path: Path) -> None:
+    """CLT가 없는 맥의 /usr/bin/git은 실행만 해도 설치 창을 띄운다. 이 스크립트는 부르지 않는다."""
+    (mac["stubs"] / "xcode-select").write_text("#!/usr/bin/env bash\nexit 2\n", encoding="utf-8",
+                                              newline="\n")
+    done = _run(mac)
+    assert "❌ Xcode Command Line Tools 없음" in done.stdout
+    # 시험 환경의 git은 /usr/bin/git이 아니라서 그대로 점검된다(가짜로 /usr/bin을 바꿀 수 없다)
+    assert "✅ git" in done.stdout or "git은 Xcode" in done.stdout

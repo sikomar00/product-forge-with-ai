@@ -1,6 +1,7 @@
 """장애 주입 시험(M1-05, ADR-0007, IA-13): 허용 대상, 스냅샷·abort, 복구·MTTR, 근본 원인 퀴즈."""
 
 import sqlite3
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -220,3 +221,68 @@ def test_abort_still_restores_when_mission_left_content(
     code, out = quest("incident", "abort")
     assert code == 0 and (game / "service.conf").read_text(encoding="utf-8") == "mode=ok\n"
     assert _incidents(game) == [("aborted", 0, 1, None)]
+
+
+def test_restore_when_scenario_deleted_parent_folder(tmp_path: Path) -> None:
+    work = tmp_path / "opsdesk"
+    (work / "config").mkdir(parents=True)
+    (work / "config" / "app.toml").write_text("port = 80\n", encoding="utf-8")
+    scenario = Chaos(("config/app.toml",), lambda ctx: None, lambda ctx: True, lambda ctx: None)
+    chaos.snapshot(_ctx(work), scenario, tmp_path / "snap")
+    import shutil
+
+    shutil.rmtree(work / "config")  # 시나리오가 rm -rf config
+    chaos.restore(tmp_path / "snap")
+    assert (work / "config" / "app.toml").read_text(encoding="utf-8") == "port = 80\n"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="chmod 000·심볼릭 링크는 POSIX에서 본다")
+def test_restore_unlocks_000_folder_and_leaves_link_targets_alone(tmp_path: Path) -> None:
+    import os
+
+    work = tmp_path / "opsdesk"
+    work.mkdir()
+    (work / "app.py").write_text("ok", encoding="utf-8")
+    outside = tmp_path / "outside.txt"
+    outside.write_text("mine", encoding="utf-8")
+    os.chmod(outside, 0o644)
+    scenario = Chaos((".",), lambda ctx: None, lambda ctx: True, lambda ctx: None)
+    chaos.snapshot(_ctx(work), scenario, tmp_path / "snap")
+    locked = work / "locked"
+    locked.mkdir()
+    (locked / "x").write_text("x", encoding="utf-8")
+    os.chmod(locked, 0)  # 권한 장애
+    (work / "link").symlink_to(outside)
+    chaos.restore(tmp_path / "snap")
+    assert not locked.exists() and not (work / "link").exists()
+    assert oct(outside.stat().st_mode & 0o777) == oct(0o644)  # 링크가 가리킨 파일은 그대로
+
+
+def test_failed_cleanup_keeps_incident_open(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (game / "service.conf").write_text("mode=ok\n", encoding="utf-8")
+    answers.append("y")
+    quest("mission", "1-2")
+    from quest.commands import incident
+
+    real = incident._mission_of
+
+    def failing_cleanup(g: object, row: object) -> object:
+        m = real(g, row)
+
+        def boom(ctx: object) -> None:
+            raise TimeoutError("orb")
+
+        object.__setattr__(m.chaos, "cleanup", boom)
+        return m
+
+    monkeypatch.setattr(incident, "_mission_of", failing_cleanup)
+    code, out = quest("incident", "abort")
+    assert code == 3 and "장애는 진행 중으로 남깁니다" in out
+    assert (game / "service.conf").read_text(encoding="utf-8") == "mode=ok\n"  # 파일은 되돌렸다
+    assert _incidents(game) == [("active", 0, 0, None)]
+    assert list((game.parent / "home" / "snapshots").iterdir())  # 다시 abort할 스냅샷이 남는다
+    monkeypatch.setattr(incident, "_mission_of", real)  # 원인을 고친 뒤 다시 abort
+    code, out = quest("incident", "abort")
+    assert code == 0, out

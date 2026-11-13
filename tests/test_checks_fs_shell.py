@@ -93,9 +93,18 @@ def test_state_changing_forms_are_refused(args: list[str]) -> None:
     assert not shell.is_read_only(args)
 
 
-def test_shell_without_workdir_is_env_error(tmp_path: Path) -> None:
-    with pytest.raises(CheckEnvError, match="작업 폴더가 없습니다"):
-        shell.run(_ctx(tmp_path / "not-cloned-yet"), ["git", "--version"])
+def test_shell_without_workdir_runs_in_empty_folder(tmp_path: Path) -> None:
+    """리포를 만들기 전에도 폴더와 상관없는 명령은 되고, 상대 경로는 엉뚱하게 통과하지 않는다."""
+    ctx = _ctx(tmp_path / "not-cloned-yet")
+    assert shell.succeeds(ctx, ["git", "--version"]).ok
+    assert not shell.succeeds(ctx, ["ls", "pyproject.toml"]).ok
+
+
+@pytest.mark.parametrize("args", [["ss", "-tK", "dst", "1.2.3.4"], ["ss", "-nKt"], []])
+def test_more_refused_forms(args: list[str]) -> None:
+    assert not shell.is_read_only(args)
+    with pytest.raises(ValueError, match="읽기 전용"):
+        shell.check_read_only(args)
 
 
 @pytest.mark.parametrize("args", [["rm", "-rf", "."], ["find", ".", "-delete"],

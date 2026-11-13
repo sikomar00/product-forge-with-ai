@@ -201,3 +201,29 @@ def test_bot_only_looks_at_my_prs(monkeypatch: pytest.MonkeyPatch) -> None:
     assert reviewbot._latest_open_pr("me/opsdesk") is None
     args = seen[0]
     assert args[args.index("--author") + 1] == "@me"  # 공개 리포의 남의 PR에는 달지 않는다
+
+
+def test_removed_double_dash_line_then_added_plus_line() -> None:
+    """지운 줄 '-- 메모'(diff에서 '--- 메모') 다음에 더한 줄 '++ x'('+++ x')가 와도
+
+    파일 이름은 그대로다."""
+    diff = chr(10).join([
+        "diff --git a/m.sql b/m.sql", "--- a/m.sql", "+++ b/m.sql", "@@ -1,2 +1,2 @@",
+        "--- old note", "+++ x", " SELECT 1;",
+    ])
+    assert reviewbot.added_lines(diff) == [("m.sql", 1, "++ x")]
+
+
+def test_unexpected_bot_error_does_not_block_grading(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(workdir: Path, rules: tuple) -> None:
+        raise ValueError("bad json from gh")
+
+    monkeypatch.setattr(reviewbot, "run_once", broken)
+    code, out = quest("check", "1-1")
+    assert "⚠️ 리뷰봇을 돌리지 못했습니다: ValueError" in out and "체크 0/1 통과" in out
+
+
+def test_bot_skips_when_repo_folder_missing(tmp_path: Path) -> None:
+    assert reviewbot.run_once(tmp_path / "not-cloned", ()) is None

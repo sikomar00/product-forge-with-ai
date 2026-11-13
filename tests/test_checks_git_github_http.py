@@ -188,3 +188,8 @@ def test_all_checks_share_one_missing() -> None:
 
     assert fs.MISSING is MISSING and github.MISSING is MISSING
     assert http.MISSING is MISSING and shell.MISSING is MISSING
+
+
+def test_http_bad_url_is_content_error_not_missing() -> None:
+    with pytest.raises(ValueError):
+        http.json_value(_ctx(Path(".")), "localhost:8000/api")
