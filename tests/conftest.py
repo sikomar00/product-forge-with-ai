@@ -29,6 +29,8 @@ def game(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("QUEST_HOME", str(tmp_path / "home"))
     monkeypatch.setenv("QUEST_CONFIG", str(cfg))
     monkeypatch.setenv("NO_COLOR", "1")
+    for name in ("HOME", "USERPROFILE"):  # 샌드박스(~/forge-sandbox)가 진짜 홈에 생기지 않게
+        monkeypatch.setenv(name, str(tmp_path / "userhome"))
     return work
 
 
