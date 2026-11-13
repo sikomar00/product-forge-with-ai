@@ -3,7 +3,7 @@
 import sqlite3
 
 from quest.commands.common import OK, USAGE, Game, line
-from quest.core import goals, progress, state, ui
+from quest.core import badges, goals, progress, state, ui
 
 STATUS_LABELS = {None: "안 함", "in_progress": "진행 중", "passed": "✅ 통과", "exempted": "면제"}
 RANK_BANDS = {0: "견습", 5: "주니어", 9: "미들", 14: "시니어 후보"}  # 등급이 시작되는 장
@@ -129,6 +129,8 @@ def cmd_stats(game: Game, rest: list[str]) -> int:
     _chapter_stats(game)
     print()
     _overall_stats(game.conn)
+    earned = badges.earned(game.conn)
+    print("배지: " + (", ".join(badges.name(k) for k in earned) if earned else "아직 없음"))
     print(ui.paint('직접 조회: quest stats --sql "SELECT * FROM v_mission_time"', "dim"))
     return OK
 

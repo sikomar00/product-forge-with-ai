@@ -2,7 +2,7 @@
 
 from quest.commands.ask import ask_card, ask_items, confirm
 from quest.commands.common import OK, USAGE, Game, due_now, line, lock_state
-from quest.core import progress, review, state, ui
+from quest.core import badges, progress, review, state, ui
 from quest.core.mission import CHECK_KINDS
 
 
@@ -27,6 +27,9 @@ def cmd_review(game: Game, rest: list[str]) -> int:
     at = state.now_utc()
     with state.transaction(conn):
         progress.event(conn, "review_finished", None, at, {"cards": len(due), "correct": correct})
+    with state.transaction(conn):
+        for key in badges.award(conn, None, at):
+            print(ui.paint(f"🏅 배지 획득: {badges.name(key)}", "yellow"))
     still_locked = lock_state(game)[0]
     days = review.streak(conn, state.parse_utc(at).astimezone(state.KST).date())
     print(f"\n복습 끝: {correct}/{len(due)} 맞힘 · 연속 복습 {days}일")

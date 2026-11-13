@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, replace
 
 from quest.commands.ask import Answered, ask_items
 from quest.commands.common import FAIL, OK, USAGE, Game, line, make_ctx, target, versions
-from quest.core import progress, review, rewards, state, ui
+from quest.core import badges, progress, review, rewards, state, ui
 from quest.core.mission import CHECK_KINDS, Ctx, Mission, Result
 from quest.kinds import ops
 
@@ -84,6 +84,7 @@ class Saved:
     exempted: list[tuple[Mission, int]] = field(default_factory=list)  # 시험으로 면제한 미션
     rebuilt: int | None = None  # 재구성 복습 보상
     redone: bool = False  # 면제됐던 미션을 직접 통과(보상 없음, 졸업 기준 인정)
+    badges: list[str] = field(default_factory=list)  # 이번에 새로 얻은 배지 키
 
 
 def _pass_new(game: Game, m: Mission, at: str, saved: Saved) -> None:
@@ -110,6 +111,7 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
         progress.record_attempt(conn, m, attempt)
         if attempt.passed and progress.progress_row(conn, m.key)["status"] == "in_progress":
             _pass_new(game, m, attempt.at, saved)
+            saved.badges = badges.award(conn, m, attempt.at)
         if attempt.passed and rebuilding:
             saved.rebuilt = rewards.rebuild_xp(m.xp)
             progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": saved.rebuilt})
@@ -134,6 +136,8 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if saved.rebuilt is not None:
         print(ui.paint(f"🔁 재구성 복습 통과! +{saved.rebuilt} XP", "green"))
         return OK
+    for key in saved.badges:
+        print(ui.paint(f"🏅 배지 획득: {badges.name(key)}", "yellow"))
     if saved.redone:
         print(ui.paint("✅ 면제됐던 미션을 직접 통과했습니다. 졸업 기준에 인정됩니다.", "green"))
         return OK
