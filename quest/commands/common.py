@@ -1,6 +1,7 @@
 """명령들이 함께 쓰는 것: 게임 열기, 대상 미션 고르기, 종료 코드, 확인 질문."""
 
 import sqlite3
+import sys
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import version
@@ -22,8 +23,9 @@ class Game:
 
 def open_game() -> Game:
     if config.ensure_config():
-        print(f"설정 파일을 만들었습니다: {config.config_path()}")
-        print("[product]의 repo_path와 github_owner를 내 값으로 바꾸세요.")
+        # stderr로 낸다. status --json의 표준 출력에 섞이면 안 된다.
+        print(f"설정 파일을 만들었습니다: {config.config_path()}", file=sys.stderr)
+        print("[product]의 repo_path와 github_owner를 내 값으로 바꾸세요.", file=sys.stderr)
     cfg = config.load_config()
     loaded = content.load_content(content.content_root(cfg))
     if not loaded.missions:

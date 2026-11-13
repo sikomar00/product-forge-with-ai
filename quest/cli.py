@@ -9,8 +9,10 @@ from quest.commands.common import ENV, OK, USAGE, Game, open_game
 from quest.commands.grade import cmd_check
 from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
+from quest.commands.records import cmd_map, cmd_stats
 from quest.commands.study import cmd_review
-from quest.core import config, ui
+from quest.commands.system import cmd_reset, cmd_status
+from quest.core import config, state, ui
 
 
 @dataclass(frozen=True)
@@ -28,7 +30,11 @@ class Command:
 def cmd_help(game: Game | None = None, rest: list[str] | None = None) -> int:
     print("quest — Product Forge With AI\n")
     for name, command in COMMANDS.items():
-        print(f"  {f'quest {name} {command.usage}'.strip():<22} {command.desc}")
+        print(f"  {f'quest {name} {command.usage}'.strip():<28} {command.desc}")
+    print()
+    print("백업에서 되돌리기: 게임을 끈 상태에서 백업 파일을 상태 DB 자리에 복사합니다.")
+    print(f"  백업 폴더: {config.home() / 'backups'}")
+    print(f"  상태 DB:   {state.db_path()}")
     return OK
 
 
@@ -41,6 +47,10 @@ COMMANDS = {
     "review": Command(cmd_review, "", "복습: 만기 카드(최대 15장)"),
     "exam": Command(cmd_exam, "", "승급 시험: 현재 장 보스에 먼저 도전"),
     "back": Command(cmd_back, "", "시험·복습 모드를 끝내고 돌아가기"),
+    "map": Command(cmd_map, "[장]", "장 지도. 장 번호를 주면 그 장의 미션 목록", max_args=1),
+    "stats": Command(cmd_stats, '[--sql "SELECT…"]', "기록: 시간·힌트·확신·복구, SQL", max_args=2),
+    "status": Command(cmd_status, "--json", "기계가 읽는 현재 상태(AI 튜터용)", max_args=1),
+    "reset": Command(cmd_reset, "", "진행 초기화(백업을 남긴다)"),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }
 
