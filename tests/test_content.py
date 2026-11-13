@@ -65,6 +65,18 @@ def test_module_without_missions_is_reported(copy: Path) -> None:
         content.load_content(copy)
 
 
+def test_missing_requires_engine_says_missing(copy: Path) -> None:
+    (copy / "content.toml").write_text("[tools]\n", encoding="utf-8")
+    with pytest.raises(EnvError, match="requires_engine이 없습니다"):
+        content.load_content(copy)
+
+
+def test_two_delayed_quizzes_for_one_chapter_are_reported(copy: Path) -> None:
+    shutil.copy(copy / "content" / "ch00_fake.py", copy / "content" / "ch00_more.py")
+    with pytest.raises(EnvError, match="ch00_more.py: 0장 DELAYED_QUIZ"):
+        content.load_content(copy)
+
+
 def test_engine_too_old_is_refused() -> None:
     with pytest.raises(EnvError, match="엔진을 갱신"):
         content.load_content(FAKE, engine_version="0.0.9")

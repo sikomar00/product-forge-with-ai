@@ -58,7 +58,9 @@ def content_root(cfg: dict) -> Path:
 
 def load_content(root: Path, engine_version: str | None = None) -> Content:
     manifest = _read_manifest(root)
-    check_compat(manifest.get("requires_engine", ""), engine_version or version("quest"))
+    if "requires_engine" not in manifest:
+        raise EnvError("content.toml에 requires_engine이 없습니다.")
+    check_compat(manifest["requires_engine"], engine_version or version("quest"))
     missions: list[Mission] = []
     quizzes: dict[int, tuple[Item, ...]] = {}
     errors: list[str] = []
@@ -89,6 +91,8 @@ def _collect(
         return []
     if not _tuple_of(module.DELAYED_QUIZ, Item):
         return [f"{path.name}: DELAYED_QUIZ는 Item의 튜플이어야 합니다"]
+    if int(chapter[1]) in quizzes:
+        return [f"{path.name}: {int(chapter[1])}장 DELAYED_QUIZ가 다른 파일에도 있습니다"]
     quizzes[int(chapter[1])] = module.DELAYED_QUIZ
     return []
 
