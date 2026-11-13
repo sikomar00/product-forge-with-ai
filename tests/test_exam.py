@@ -95,7 +95,10 @@ def test_chapter_completes_only_when_core_missions_are_done(
     answers.append("2")  # 1-1 🚀 설명 게이트
     quest("check", "1-1")
     assert _completed_via(conn) is None
-    (ch1 / "recovered.txt").write_text("x", encoding="utf-8")
+    answers.append("y")
+    quest("mission", "1-2")  # 장애 주입
+    (ch1 / "service.conf").write_text("mode=ok\n", encoding="utf-8")
+    answers.append("2")  # 근본 원인 퀴즈
     quest("check", "1-2")
     assert _completed_via(conn) == "boss"  # 선택 미션 1-3은 상관없다
 
