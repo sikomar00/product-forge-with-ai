@@ -6,12 +6,14 @@ from dataclasses import dataclass
 
 from quest.commands.assist import cmd_hint, cmd_solution
 from quest.commands.common import ENV, OK, USAGE, Game, open_game
+from quest.commands.doctor import cmd_doctor
 from quest.commands.grade import cmd_check
 from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
 from quest.commands.records import cmd_goals, cmd_map, cmd_stats
 from quest.commands.study import cmd_review
 from quest.commands.system import cmd_reset, cmd_status
+from quest.commands.update import cmd_update
 from quest.core import config, state, ui
 
 
@@ -52,6 +54,8 @@ COMMANDS = {
     "stats": Command(cmd_stats, '[--sql "SELECT…"]', "기록: 시간·힌트·확신·복구, SQL", max_args=2),
     "status": Command(cmd_status, "--json", "기계가 읽는 현재 상태(AI 튜터용)", max_args=1),
     "reset": Command(cmd_reset, "", "진행 초기화(백업을 남긴다)"),
+    "doctor": Command(cmd_doctor, "", "장비 점검: 도구 설치와 허용 버전", needs_game=False),
+    "update": Command(cmd_update, "", "콘텐츠 받기·갱신", needs_game=False),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }
 
@@ -71,11 +75,10 @@ def main(argv: list[str] | None = None) -> int:
     if command is None or len(rest) > command.max_args:
         cmd_help()
         return USAGE
-    if not command.needs_game:
-        return command.fn(None, rest)
     game = None
     try:
-        game = open_game()
+        if command.needs_game:
+            game = open_game()
         return command.fn(game, rest)
     except config.EnvError as exc:
         print(ui.paint(f"❌ {exc}", "red"), file=sys.stderr)

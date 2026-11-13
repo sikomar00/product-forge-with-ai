@@ -59,7 +59,7 @@ def content_root(cfg: dict) -> Path:
 
 
 def load_content(root: Path, engine_version: str | None = None) -> Content:
-    manifest = _read_manifest(root)
+    manifest = read_manifest(root)
     if "requires_engine" not in manifest:
         raise EnvError("content.toml에 requires_engine이 없습니다.")
     check_compat(manifest["requires_engine"], engine_version or version("quest"))
@@ -101,7 +101,7 @@ def _collect(
     return []
 
 
-def _read_manifest(root: Path) -> dict:
+def read_manifest(root: Path) -> dict:
     path = root / "content.toml"
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
