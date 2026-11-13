@@ -256,6 +256,11 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 스냅샷 종류: 파일·폴더는 tar 묶음, git 리포는 `git bundle --all`과 추적 파일 묶음, VM 안의 변경은 시나리오가 바꾼 파일·서비스와 원래 값의 목록(되돌리기 목록).
 - **주입 허용 대상**(ADR-0007의 라벨 규칙): ① 이름이 `pf-lab`으로 시작하는 OrbStack 머신, ② `product.repo_path` 아래 또는 `~/forge-sandbox/` 아래 경로, ③ 라벨 `product-forge.lab=true`가 붙은 Docker 리소스(9장부터), ④ 이름이 `pf-`로 시작하는 k3d 클러스터(12장부터). 그 밖은 엔진이 거절한다. 맥 시스템 경로(`/System`, `/usr`, `/etc`, `~/Library`)와 Tech Radar 리포 경로는 명시적으로 거절한다.
 - 진행 중인 장애는 하나뿐이다(ERD). MTTR은 주입 시각부터 복구 체크 통과까지다.
+- (T1-3 결정, `quest/chaos/`, `commands/incident.py`) 시나리오는 `Mission.chaos = Chaos(targets, inject, verify, cleanup)`이고, 근본 원인 퀴즈는 `Mission.rca`(문항)다. 장애 미션은 chaos가 있어야 불러온다.
+- 주입: 장애 미션을 `quest mission`으로 볼 때 대상을 보여 주고 확인을 받은 뒤 한다. 중단한 뒤 다시 보면 다시 묻는다. inject가 예외를 내거나 verify가 거짓이면 바로 되돌리고 aborted로 닫는다(종료 코드 3).
+- 경로 스냅샷은 대상 폴더를 `.git`까지 tar로 묶는다(git bundle과 같은 상태를 한 방법으로). 풀 때 `filter="data"`로 경로 밖에 풀리지 않게 한다. 없던 경로는 되돌릴 때 지운다. 복구·중단하면 스냅샷 폴더를 지운다.
+- 복구: 진행 중인 장애의 미션에서 복구 체크를 모두 통과하면 recovered(MTTR 끝). 그다음 근본 원인 퀴즈를 묻고, 틀리면 미션은 통과가 아니다(`rca_correct` 기록). 다시 `quest check`하면 퀴즈만 다시 본다. 장애를 시작하지 않은 장애 미션은 채점하지 않는다(종료 코드 2).
+- 진행 중인 장애가 있으면 승급 시험과 초기화를 거절한다. 허용 대상은 지금 경로와 `lab:pf-lab…`만이고, Docker(9장)·k3d(12장)는 그 장을 만들 때 더한다.
 
 ### Linux VM 랩 (M1-06, 2026-11-09 결정: OrbStack 머신)
 
