@@ -21,7 +21,8 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-6 나머지 유형·복습·잠금·시험(사용자 + AI, Windows). 시작할 때 `cli.py`(303줄, 권장 300줄 초과)를 명령별 모듈로 나눈다.
+- 다음 작업: T0-7 기록과 상태 출력(IA-6 지도, IA-10 goals, IA-11 stats, IA-15 status --json, IA-17 reset)(사용자 + AI, Windows).
+- T0-6 완료(2026-11-13): `cli.py`를 `quest/commands/`로 나눔. 문항형 채점·확신도·설명 게이트(`core/answers.py`, `commands/ask.py`·`grade.py`), 카드 복습·잠금·연속 복습일·재구성 복습·지연 확인 퀴즈(`core/review.py`, `commands/study.py`), 승급 시험·돌아가기(`commands/modes.py`). 정해진 세부 규칙은 Spec에 "(T0-6)"으로 적었다.
 - T0-5 완료(2026-11-13): `core/spoiler.py`(obf1), `quest hint`·`quest solution`(감점 안내 후 [y/N] 확인, `hint_opened`·`solution_viewed` 기록). 콘텐츠 검증이 난독화 문자열을 실제로 풀어 본다. 끝낸 미션의 모범 답안은 감점 없이 보이고 기록하지 않는다(AI 판단, 리뷰 필요).
 - T0-4 완료(2026-11-13): `core/progress.py`·`core/rewards.py`(계산만)·`core/ui.py`·`kinds/ops.py`·`cli.py`. 가짜 실습 미션이 홈 → 미션 → 채점 → 통과까지 돈다(IA-1·2·3·16, 종료 코드 0·1·2·3). 뒤 단계로 미룬 것: 설명 게이트·복습 잠금·연속 복습일·배지(T0-6), 나머지 이벤트(T0-7), `quest hint`(T0-5).
 - T0-3 완료(2026-11-13): `core/mission.py`(미션 스키마), `core/content.py`(불러오기·검증·호환), `tests/fixtures/fake_content/`(8가지 유형, 미션 9개, 지연 확인 퀴즈 10문항). 스키마 결정 3가지는 Spec "미션 스키마"에 적었다.
