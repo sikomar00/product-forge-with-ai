@@ -177,3 +177,10 @@ def test_redo_start_respects_review_lock(ch1: Path, quest: Quest) -> None:
     cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 0"), encoding="utf-8")
     code, out = quest("mission", "1-1")
     assert code == 2 and "새 미션을 열지 않습니다" in out
+
+
+def test_exam_pass_gives_skip_badge(ch1: Path, quest: Quest) -> None:
+    quest("exam")
+    (ch1 / "boss.txt").write_text("x", encoding="utf-8")
+    code, out = quest("check")
+    assert "🚀 월반(승급 시험 통과)" in out

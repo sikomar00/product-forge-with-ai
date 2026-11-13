@@ -14,7 +14,7 @@ MISSIONS = (
         key="m_f0000001", id="0-1", ch=0, kind="ops", title="가짜 실습", frm="가짜 팀장",
         xp=10, ai="pair", msg="hello.txt를 만드세요", hints=HINTS, solution=obf("touch hello.txt"),
         cards=(card("c_f0000001"),), checks=(file_exists("hello.txt"),),
-        explain=(choice_item(1), choice_item(2)), est_min=5,
+        explain=(choice_item(1), choice_item(2)), est_min=5, badge="fake_first_file",
     ),
     Mission(
         key="m_f0000002", id="0-2", ch=0, kind="quiz", title="가짜 퀴즈", frm="가짜 팀장",
