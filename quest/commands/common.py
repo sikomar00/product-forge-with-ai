@@ -19,6 +19,7 @@ class Game:
     missions: tuple[Mission, ...]
     cfg: dict
     quizzes: dict[int, tuple[Item, ...]] = field(default_factory=dict)  # 장 → 지연 확인 퀴즈
+    goals: dict[str, tuple[str, ...]] = field(default_factory=dict)  # 졸업 기준 영역 → 미션 키
 
 
 def open_game() -> Game:
@@ -37,7 +38,7 @@ def open_game() -> Game:
             " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
             (version("quest"),),
         )
-    return Game(conn, loaded.missions, cfg, loaded.delayed_quiz)
+    return Game(conn, loaded.missions, cfg, loaded.delayed_quiz, loaded.goals)
 
 
 def versions(conn: sqlite3.Connection) -> tuple[str, str]:
@@ -87,12 +88,18 @@ def due_now(game: Game) -> list[sqlite3.Row]:
     return [row for row in review.due_cards(game.conn) if row["card_key"] in known]
 
 
-def lock_state(game: Game) -> tuple[bool, int, int]:
-    """(잠겼는지, 만기 카드 수, 기준). 잠금 on·off 변화도 기록한다(M0-13)."""
+def lock_view(game: Game) -> tuple[bool, int, int]:
+    """(잠겼는지, 만기 카드 수, 기준). 읽기만 한다(홈·status --json용)."""
     due, threshold = len(due_now(game)), review.lock_threshold(game.cfg)
-    with state.transaction(game.conn):
-        review.sync_lock(game.conn, due >= threshold, state.now_utc())
     return due >= threshold, due, threshold
+
+
+def lock_state(game: Game) -> tuple[bool, int, int]:
+    """lock_view와 같고, 잠금 on·off 변화를 기록한다. 새 미션 시작·시험·복습 끝에서 쓴다(M0-13)."""
+    is_locked, due, threshold = lock_view(game)
+    with state.transaction(game.conn):
+        review.sync_lock(game.conn, due, threshold, state.now_utc())
+    return is_locked, due, threshold
 
 
 def blocked_by_lock(game: Game, m: Mission) -> bool:

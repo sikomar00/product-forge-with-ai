@@ -42,11 +42,16 @@ def current(missions: tuple[Mission, ...], status: dict[str, str]) -> Mission | 
     )
 
 
+def chapter_core(missions: tuple[Mission, ...], ch: int) -> list[Mission]:
+    """장의 코어 미션(선택 미션 제외), 콘텐츠 순서."""
+    return [m for m in missions if m.ch == ch and m.track == "core"]
+
+
 def chapter_counts(
     missions: tuple[Mission, ...], status: dict[str, str], ch: int
 ) -> tuple[int, int]:
     """(통과·면제한 코어 미션 수, 장의 코어 미션 수)."""
-    core = [m for m in missions if m.ch == ch and m.track == "core"]
+    core = chapter_core(missions, ch)
     return sum(status.get(m.key) in DONE for m in core), len(core)
 
 
@@ -103,9 +108,18 @@ def event(conn: sqlite3.Connection, kind: str, mission_key: str | None, at: str,
 
 
 def start(conn: sqlite3.Connection, m: Mission, at: str) -> bool:
-    """미션을 처음 보여 줄 때 시작 기록을 만든다. 이미 있으면 False."""
-    if progress_row(conn, m.key) is not None:
+    """미션을 처음 보여 줄 때 시작 기록을 만든다. 이미 시작했으면 False.
+
+    면제된 미션은 시작 시각 없이 생긴다. 학습자가 직접 다시 하면 그때 시작 시각을 채운다.
+    """
+    row = progress_row(conn, m.key)
+    if row is not None and row["started_at"] is not None:
         return False
+    if row is not None:
+        conn.execute("UPDATE mission_progress SET started_at = ? WHERE mission_key = ?",
+                     (at, m.key))
+        event(conn, "mission_started", m.key, at)
+        return True
     conn.execute(
         "INSERT INTO mission_progress (mission_key, display_id, chapter, status, started_at,"
         " est_min, ai_tag) VALUES (?, ?, ?, 'in_progress', ?, ?, ?)",
@@ -197,7 +211,11 @@ def complete_chapter_if_done(conn: sqlite3.Connection, chapter_core: list[Missio
     boss = next((m for m in chapter_core if m.kind == "boss"), None)
     if boss is None or any(status.get(m.key) not in DONE for m in chapter_core):
         return False
-    via = "exam" if progress_row(conn, boss.key)["how"] == "exam" else "boss"
+    # how로 정하면 시험 중 모범 답안을 본 보스(how=solution)가 boss로 잘못 남는다
+    by_exam = conn.execute(
+        "SELECT 1 FROM events WHERE kind = 'exam_passed' AND mission_key = ?", (boss.key,)
+    ).fetchone()
+    via = "exam" if by_exam else "boss"
     cursor = conn.execute(
         "UPDATE chapter_progress SET completed_at = ?, completed_via = ?"
         " WHERE chapter = ? AND completed_at IS NULL",
@@ -229,8 +247,8 @@ def exempt_rest_of_chapter(conn: sqlite3.Connection, missions: tuple[Mission, ..
     선택 미션은 면제하지 않는다(Spec "승급 시험"). (미션, 받은 XP) 목록을 돌려준다.
     """
     status = statuses(conn)
-    rest = [m for m in missions if m.ch == boss.ch and m.track == "core" and m.key != boss.key
-            and status.get(m.key) not in DONE]
+    rest = [m for m in chapter_core(missions, boss.ch)
+            if m.key != boss.key and status.get(m.key) not in DONE]
     exempted = []
     for m in rest:
         xp = rewards.exam_skip_xp(m.xp)

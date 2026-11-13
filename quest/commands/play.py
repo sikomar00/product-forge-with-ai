@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from quest.commands.common import OK, Game, line, lock_state, mode_target, target
+from quest.commands.common import OK, Game, line, lock_view, mode_target, target
 from quest.core import progress, review, state, ui
 from quest.core.mission import CHECK_KINDS, Mission
 
@@ -16,7 +16,7 @@ def cmd_home(game: Game, rest: list[str]) -> int:
     if progress.active_incident(conn):
         print(ui.paint("🚨 진행 중인 장애가 있습니다. quest incident status", "red"))
     ch = m.ch if m else game.missions[-1].ch
-    is_locked, due, threshold = lock_state(game)
+    is_locked, due, threshold = lock_view(game)
     if is_locked:
         print(ui.paint(f"🔒 복습 잠금: 만기 카드 {due}장. "
                        f"quest review로 {threshold}장 아래로 줄이면 풀립니다.", "yellow"))

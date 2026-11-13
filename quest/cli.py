@@ -9,7 +9,7 @@ from quest.commands.common import ENV, OK, USAGE, Game, open_game
 from quest.commands.grade import cmd_check
 from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
-from quest.commands.records import cmd_map, cmd_stats
+from quest.commands.records import cmd_goals, cmd_map, cmd_stats
 from quest.commands.study import cmd_review
 from quest.commands.system import cmd_reset, cmd_status
 from quest.core import config, state, ui
@@ -48,6 +48,7 @@ COMMANDS = {
     "exam": Command(cmd_exam, "", "승급 시험: 현재 장 보스에 먼저 도전"),
     "back": Command(cmd_back, "", "시험·복습 모드를 끝내고 돌아가기"),
     "map": Command(cmd_map, "[장]", "장 지도. 장 번호를 주면 그 장의 미션 목록", max_args=1),
+    "goals": Command(cmd_goals, "", "졸업 기준 13개 영역의 충족 상태"),
     "stats": Command(cmd_stats, '[--sql "SELECT…"]', "기록: 시간·힌트·확신·복구, SQL", max_args=2),
     "status": Command(cmd_status, "--json", "기계가 읽는 현재 상태(AI 튜터용)", max_args=1),
     "reset": Command(cmd_reset, "", "진행 초기화(백업을 남긴다)"),

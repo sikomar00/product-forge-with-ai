@@ -3,9 +3,10 @@
 import json
 import sqlite3
 from datetime import UTC, datetime
+from pathlib import Path
 
 from quest.commands.ask import read
-from quest.commands.common import OK, USAGE, Game, lock_state, mode_target
+from quest.commands.common import OK, USAGE, Game, lock_view, mode_target
 from quest.core import config, progress, state
 from quest.core.mission import Mission
 
@@ -42,7 +43,7 @@ def _status(game: Game) -> dict:
         "mode": progress.mode(game.conn),
         "remaining_checks": {"numbers": numbers, "count": len(numbers)},
         "incident_active": progress.active_incident(game.conn),
-        "review_lock": lock_state(game)[0],
+        "review_lock": lock_view(game)[0],
     }
 
 
@@ -57,19 +58,38 @@ def cmd_status(game: Game, rest: list[str]) -> int:
 # ───────────── IA-17 초기화 ─────────────
 
 
+def _new_backup_path() -> Path:
+    """backups/state-<UTC 시각>.db. 같은 초에 또 만들면 -2, -3을 붙여 앞 백업을 덮지 않는다."""
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    folder = config.home() / "backups"
+    folder.mkdir(parents=True, exist_ok=True)
+    path, n = folder / f"state-{stamp}.db", 1
+    while path.exists():
+        n += 1
+        path = folder / f"state-{stamp}-{n}.db"
+    return path
+
+
 def cmd_reset(game: Game, rest: list[str]) -> int:
+    if progress.active_incident(game.conn):  # 지우면 abort가 되돌릴 스냅샷 기록을 잃는다(ADR-0007)
+        print("진행 중인 장애가 있어 초기화하지 않습니다. 먼저 quest incident abort")
+        return USAGE
     print("진행 기록을 모두 지우고 처음부터 시작합니다. 지금 기록은 백업 파일로 남깁니다.")
     if read(f"계속하려면 '{RESET_PHRASE}'를 입력하세요: ") != RESET_PHRASE:
         print("초기화하지 않았습니다.")
         return OK
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    backup = config.home() / "backups" / f"state-{stamp}.db"
-    backup.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(backup) as target:
-        game.conn.backup(target)
+    backup = _new_backup_path()
+    target = sqlite3.connect(backup)
+    game.conn.backup(target)
     target.close()
     game.conn.close()  # Windows는 열린 파일을 지우지 못한다
-    state.db_path().unlink()
+    try:
+        state.db_path().unlink()
+    except OSError as exc:
+        raise config.EnvError(
+            f"상태 DB를 지우지 못했습니다({exc.strerror}). 다른 프로그램이 열고 있지 않은지"
+            f" 확인하세요. 지금 기록은 그대로이고 백업은 {backup}에 있습니다."
+        ) from exc
     fresh = state.connect()
     with state.transaction(fresh):
         progress.event(fresh, "reset_backup", None, state.now_utc(), {"backup": backup.name})

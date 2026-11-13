@@ -1,6 +1,6 @@
 """IA-3 채점: 체크형·문항형 미션, 설명 게이트, 보상(M0-07, M0-10, M0-11, Spec "채점")."""
 
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 
 from quest.commands.ask import Answered, ask_items
 from quest.commands.common import FAIL, OK, USAGE, Game, line, make_ctx, target, versions
@@ -76,29 +76,46 @@ def _finish_exam(game: Game, boss: Mission, at: str) -> list[tuple[Mission, int]
     return exempted
 
 
-def _save(
-    game: Game, m: Mission, attempt: progress.Attempt
-) -> tuple[int | None, list[tuple[Mission, int]], int | None]:
-    """시도를 한 트랜잭션으로 기록하고 (미션 보상, 시험 면제 목록, 재구성 보상)을 돌려준다."""
-    conn, xp, exempted, rebuilt = game.conn, None, [], None
+@dataclass
+class Saved:
+    """한 번의 채점이 남긴 결과(화면 표시용)."""
+
+    xp: int | None = None  # 새로 통과해서 받은 보상
+    exempted: list[tuple[Mission, int]] = field(default_factory=list)  # 시험으로 면제한 미션
+    rebuilt: int | None = None  # 재구성 복습 보상
+    redone: bool = False  # 면제됐던 미션을 직접 통과(보상 없음, 졸업 기준 인정)
+
+
+def _pass_new(game: Game, m: Mission, at: str, saved: Saved) -> None:
+    conn = game.conn
+    row = progress.progress_row(conn, m.key)
+    saved.xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
+    in_exam = progress.is_exam_target(conn, m.key)
+    progress.pass_mission(conn, m, saved.xp, at)
+    if in_exam:
+        saved.exempted = _finish_exam(game, m, at)
+    progress.complete_chapter_if_done(conn, progress.chapter_core(game.missions, m.ch), at)
+
+
+def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
+    """시도를 한 트랜잭션으로 기록한다."""
+    conn, saved = game.conn, Saved()
     rebuilding = progress.is_rebuild_target(conn, m.key)
     with state.transaction(conn):
         progress.start(conn, m, attempt.at)
         progress.record_attempt(conn, m, attempt)
-        row = progress.progress_row(conn, m.key)
-        if attempt.passed and row["status"] == "in_progress":
-            xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
-            in_exam = progress.is_exam_target(conn, m.key)
+        status = progress.progress_row(conn, m.key)["status"]
+        if attempt.passed and status == "in_progress":
+            _pass_new(game, m, attempt.at, saved)
+        elif attempt.passed and status == "exempted":  # 보상은 면제 때 받은 그대로 둔다
+            xp = progress.progress_row(conn, m.key)["xp_awarded"]
             progress.pass_mission(conn, m, xp, attempt.at)
-            if in_exam:
-                exempted = _finish_exam(game, m, attempt.at)
-            chapter_core = [c for c in game.missions if c.ch == m.ch and c.track == "core"]
-            progress.complete_chapter_if_done(conn, chapter_core, attempt.at)
+            saved.redone = True
         if attempt.passed and rebuilding:
-            rebuilt = rewards.rebuild_xp(m.xp)
-            progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": rebuilt})
+            saved.rebuilt = rewards.rebuild_xp(m.xp)
+            progress.event(conn, "rebuild_passed", m.key, attempt.at, {"xp": saved.rebuilt})
             progress.set_mode(conn, "normal", None, attempt.at)
-    return xp, exempted, rebuilt
+    return saved
 
 
 def cmd_check(game: Game, rest: list[str]) -> int:
@@ -106,20 +123,25 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if m is None:
         return code
     row = progress.progress_row(game.conn, m.key)
-    attempt = _grade(game, m, done=row is not None and row["status"] != "in_progress")
+    # 면제된 미션을 직접 다시 할 때는 설명 게이트도 다시 본다
+    attempt = _grade(game, m, done=row is not None and row["status"] == "passed")
     if attempt is None:
         print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
         return USAGE
-    xp, exempted, rebuilt = _save(game, m, attempt)
+    saved = _save(game, m, attempt)
     if not attempt.passed:
         print(ui.paint("다시 quest check로 처음부터 다시 봅니다. 막히면 quest hint", "dim"))
         return FAIL
-    if rebuilt is not None:
-        print(ui.paint(f"🔁 재구성 복습 통과! +{rebuilt} XP", "green"))
+    if saved.rebuilt is not None:
+        print(ui.paint(f"🔁 재구성 복습 통과! +{saved.rebuilt} XP", "green"))
         return OK
-    if xp is None:
+    if saved.redone:
+        print(ui.paint("✅ 면제됐던 미션을 직접 통과했습니다. 졸업 기준에 인정됩니다.", "green"))
+        return OK
+    if saved.xp is None:
         print("✅ 이미 끝낸 미션입니다. 보상은 다시 주지 않습니다.")
         return OK
+    xp, exempted = saved.xp, saved.exempted
     row = progress.progress_row(game.conn, m.key)
     one_shot = row["fails"] == 0 and row["hints_used"] == 0 and not row["solution_seen"]
     print(ui.paint(f"🎉 통과! +{xp} XP" + (" (원샷 보너스)" if one_shot else ""), "green"))

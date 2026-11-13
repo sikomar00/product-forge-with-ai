@@ -3,7 +3,7 @@
 import sqlite3
 
 from quest.commands.common import OK, USAGE, Game, line
-from quest.core import progress, state, ui
+from quest.core import goals, progress, state, ui
 
 STATUS_LABELS = {None: "안 함", "in_progress": "진행 중", "passed": "✅ 통과", "exempted": "면제"}
 RANK_BANDS = {0: "견습", 5: "주니어", 9: "미들", 14: "시니어 후보"}  # 등급이 시작되는 장
@@ -87,11 +87,17 @@ def _overall_stats(conn: sqlite3.Connection) -> None:
 def readonly_connect() -> sqlite3.Connection:
     """상태 DB 읽기 전용 연결(Spec 결정 13).
 
-    mode=ro는 상태 DB만 막는다. query_only는 ATTACH한 다른 파일에도 쓰지 못하게 한다.
+    mode=ro는 상태 DB만 막는다. query_only는 다른 DB 파일에도 쓰지 못하게 하고,
+    ATTACH는 빈 파일을 새로 만들 수 있어서 권한 검사로 아예 막는다.
     """
     conn = sqlite3.connect(f"{state.db_path().as_uri()}?mode=ro", uri=True)
     conn.execute("PRAGMA query_only = ON")
+    conn.set_authorizer(_deny_attach)
     return conn
+
+
+def _deny_attach(action: int, *_: object) -> int:
+    return sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_ATTACH else sqlite3.SQLITE_OK
 
 
 def _run_sql(sql: str) -> int:
@@ -123,4 +129,26 @@ def cmd_stats(game: Game, rest: list[str]) -> int:
     print()
     _overall_stats(game.conn)
     print(ui.paint('직접 조회: quest stats --sql "SELECT * FROM v_mission_time"', "dim"))
+    return OK
+
+
+# ───────────── IA-10 졸업 기준 ─────────────
+
+
+def cmd_goals(game: Game, rest: list[str]) -> int:
+    status = progress.statuses(game.conn)
+    by_key = {m.key: m for m in game.missions}
+    met = 0
+    for area, name in goals.AREAS.items():
+        keys = game.goals.get(area)
+        if not keys:
+            print(f"⬜ {name:<12} — 콘텐츠 준비 전")
+            continue
+        passed, exempted = goals.area_status(keys, status)
+        met += passed == len(keys)
+        print(f"{'✅' if passed == len(keys) else '⬜'} {name:<12} {passed}/{len(keys)}")
+        for key in exempted:
+            m_id = by_key[key].id
+            print(f"     ↳ {m_id}은 면제됨. quest mission {m_id}로 직접 하면 충족")
+    print(ui.paint(f"\n졸업 기준 {met}/{len(goals.AREAS)} 충족", "bold"))
     return OK

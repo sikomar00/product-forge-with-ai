@@ -72,15 +72,16 @@ def lock_threshold(cfg: dict) -> int:
     return value
 
 
-def sync_lock(conn: sqlite3.Connection, now_locked: bool, at: str) -> None:
-    """잠금 상태가 바뀌었으면 review_lock_on·off를 남긴다."""
+def sync_lock(conn: sqlite3.Connection, due: int, threshold: int, at: str) -> None:
+    """잠금 상태가 바뀌었으면 review_lock_on·off를 남긴다. 값은 그때의 만기 카드 수다."""
+    now_locked = due >= threshold
     last = conn.execute(
         "SELECT kind FROM events WHERE kind IN ('review_lock_on', 'review_lock_off')"
         " ORDER BY event_id DESC LIMIT 1"
     ).fetchone()
     was_locked = last is not None and last[0] == "review_lock_on"
     if now_locked != was_locked:
-        event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at)
+        event(conn, "review_lock_on" if now_locked else "review_lock_off", None, at, {"due": due})
 
 
 # ───────────── 재구성 복습 ─────────────

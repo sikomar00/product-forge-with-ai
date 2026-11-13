@@ -5,13 +5,14 @@ import operator
 import re
 import tomllib
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib.metadata import version
 from pathlib import Path
 from types import ModuleType
 
 from quest.core import answers, spoiler
 from quest.core.config import EnvError
+from quest.core.goals import goal_errors
 from quest.core.mission import (
     AI_MODES,
     CARD_GRADINGS,
@@ -46,6 +47,7 @@ _CLAUSE = re.compile(r"\s*(>=|<=|==|!=|>|<)\s*(\d+(?:\.\d+)*)\s*")
 class Content:
     missions: tuple[Mission, ...]  # 장 → 장 안의 순서
     delayed_quiz: dict[int, tuple[Item, ...]]  # 장 번호 → 지연 확인 퀴즈 문항
+    goals: dict[str, tuple[str, ...]] = field(default_factory=dict)  # 졸업 기준 영역 → 미션 키
 
 
 def content_root(cfg: dict) -> Path:
@@ -67,9 +69,11 @@ def load_content(root: Path, engine_version: str | None = None) -> Content:
     for path in sorted((root / "content").glob("ch*.py")):
         errors += _collect(path, missions, quizzes)
     errors += validate(missions, quizzes)
+    goals = manifest.get("goals", {})  # 콘텐츠는 장마다 늘어나므로 없는 영역은 '준비 전'이다
+    errors += goal_errors(goals, {m.key for m in missions})
     if errors:
         raise EnvError("콘텐츠가 미션 스키마에 맞지 않습니다:\n" + "\n".join(errors))
-    return Content(tuple(missions), quizzes)
+    return Content(tuple(missions), quizzes, {area: tuple(keys) for area, keys in goals.items()})
 
 
 def _tuple_of(value: object, cls: type) -> bool:
