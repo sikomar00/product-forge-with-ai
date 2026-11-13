@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from quest.commands.assist import cmd_hint, cmd_solution
 from quest.commands.common import ENV, OK, USAGE, Game, open_game
 from quest.commands.grade import cmd_check
+from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
 from quest.commands.study import cmd_review
 from quest.core import config, ui
@@ -38,6 +39,8 @@ COMMANDS = {
     "hint": Command(cmd_hint, "[ID]", "다음 단계 힌트(감점)", max_args=1),
     "solution": Command(cmd_solution, "[ID]", "모범 답안(보상 20%만)", max_args=1),
     "review": Command(cmd_review, "", "복습: 만기 카드(최대 15장)"),
+    "exam": Command(cmd_exam, "", "승급 시험: 현재 장 보스에 먼저 도전"),
+    "back": Command(cmd_back, "", "시험·복습 모드를 끝내고 돌아가기"),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }
 

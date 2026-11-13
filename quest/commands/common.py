@@ -66,10 +66,16 @@ def _pick(game: Game, rest: list[str]) -> tuple[Mission | None, int]:
             print(f"❌ 그런 미션이 없습니다: {rest[0]}  (quest 로 현재 미션을 보세요)")
             return None, USAGE
         return found, OK
-    found = progress.current(game.missions, progress.statuses(game.conn))
+    found = mode_target(game) or progress.current(game.missions, progress.statuses(game.conn))
     if found is None:
         print("🎉 모든 코어 미션을 마쳤습니다.")
     return found, OK
+
+
+def mode_target(game: Game) -> Mission | None:
+    """시험·복습 모드면 그 대상 미션. 일반 모드면 None."""
+    key = progress.mode_mission(game.conn)
+    return next((m for m in game.missions if m.key == key), None) if key else None
 
 
 def blocked_by_lock(game: Game, m: Mission) -> bool:

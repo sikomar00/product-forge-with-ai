@@ -8,6 +8,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import timedelta
 
+from quest.core import rewards
 from quest.core.mission import Mission
 from quest.core.state import format_utc, parse_utc
 
@@ -56,6 +57,23 @@ def progress_row(conn: sqlite3.Connection, key: str) -> sqlite3.Row | None:
 def mode(conn: sqlite3.Connection) -> str:
     row = conn.execute("SELECT mode FROM game_state WHERE id = 1").fetchone()
     return row[0] if row else "normal"
+
+
+def mode_mission(conn: sqlite3.Connection) -> str | None:
+    """시험·복습 모드의 대상 미션 키. 일반 모드면 None."""
+    row = conn.execute("SELECT mode_mission_key FROM game_state WHERE id = 1").fetchone()
+    return row[0] if row else None
+
+
+def set_mode(conn: sqlite3.Connection, new_mode: str, mission_key: str | None, at: str) -> None:
+    started = None if new_mode == "normal" else at
+    conn.execute(
+        "INSERT INTO game_state (id, mode, mode_mission_key, mode_started_at, updated_at)"
+        " VALUES (1, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET mode = excluded.mode,"
+        " mode_mission_key = excluded.mode_mission_key,"
+        " mode_started_at = excluded.mode_started_at, updated_at = excluded.updated_at",
+        (new_mode, mission_key, started, at),
+    )
 
 
 def total_xp(conn: sqlite3.Connection) -> int:
@@ -138,8 +156,15 @@ def record_attempt(conn: sqlite3.Connection, m: Mission, attempt: Attempt) -> in
 
 
 def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None:
-    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다."""
-    how = "solution" if progress_row(conn, m.key)["solution_seen"] else "normal"
+    """최종 통과: 진행을 통과로 바꾸고, 카드를 1번 상자에 넣고(만기 다음 날), 이벤트를 남긴다.
+
+    보스를 통과하면 장을 끝낸다. 시험 모드면 완료 방식이 exam이다.
+    """
+    in_exam = mode(conn) == "exam" and mode_mission(conn) == m.key
+    if progress_row(conn, m.key)["solution_seen"]:
+        how = "solution"
+    else:
+        how = "exam" if in_exam else "normal"
     conn.execute(
         "UPDATE mission_progress SET status = 'passed', how = ?, completed_at = ?, xp_awarded = ?"
         " WHERE mission_key = ?",
@@ -152,6 +177,12 @@ def pass_mission(conn: sqlite3.Connection, m: Mission, xp: int, at: str) -> None
         [(c.key, m.key, c.kind, at, due) for c in m.cards],
     )
     event(conn, "mission_passed", m.key, at, {"xp": xp})
+    if m.kind == "boss":
+        conn.execute(
+            "UPDATE chapter_progress SET completed_at = ?, completed_via = ?"
+            " WHERE chapter = ? AND completed_at IS NULL",
+            (at, "exam" if in_exam else "boss", m.ch),
+        )
 
 
 def open_hint(conn: sqlite3.Connection, m: Mission, at: str) -> int:
@@ -168,3 +199,28 @@ def view_solution(conn: sqlite3.Connection, m: Mission, at: str) -> None:
     """모범 답안을 본 것으로 기록한다. 이렇게 통과한 미션은 재구성 복습에 먼저 나온다."""
     conn.execute("UPDATE mission_progress SET solution_seen = 1 WHERE mission_key = ?", (m.key,))
     event(conn, "solution_viewed", m.key, at)
+
+
+def exempt_rest_of_chapter(conn: sqlite3.Connection, missions: tuple[Mission, ...], boss: Mission,
+                           at: str) -> list[tuple[Mission, int]]:
+    """시험으로 보스를 통과한 뒤: 그 장의 남은 코어 미션(장애 포함)을 면제하고 각각 50%를 준다.
+
+    선택 미션은 면제하지 않는다(Spec "승급 시험"). (미션, 받은 XP) 목록을 돌려준다.
+    """
+    status = statuses(conn)
+    rest = [m for m in missions if m.ch == boss.ch and m.track == "core" and m.key != boss.key
+            and status.get(m.key) not in DONE]
+    exempted = []
+    for m in rest:
+        xp = rewards.exam_skip_xp(m.xp)
+        conn.execute(
+            "INSERT INTO mission_progress (mission_key, display_id, chapter, status, how,"
+            " completed_at, xp_awarded, est_min, ai_tag)"
+            " VALUES (?, ?, ?, 'exempted', 'exam_skip', ?, ?, ?, ?)"
+            " ON CONFLICT (mission_key) DO UPDATE SET status = 'exempted', how = 'exam_skip',"
+            " completed_at = excluded.completed_at, xp_awarded = excluded.xp_awarded",
+            (m.key, m.id, m.ch, at, xp, m.est_min, m.ai),
+        )
+        event(conn, "mission_exempted", m.key, at, {"xp": xp})
+        exempted.append((m, xp))
+    return exempted

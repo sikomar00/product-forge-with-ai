@@ -58,6 +58,14 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
     return progress.Attempt(checks, passed, state.now_utc(), versions(game.conn), responses)
 
 
+def _finish_exam(game: Game, boss: Mission, at: str) -> list[tuple[Mission, int]]:
+    """시험 모드에서 보스를 통과했다: 남은 코어 미션 면제, exam_passed, 일반 모드로."""
+    exempted = progress.exempt_rest_of_chapter(game.conn, game.missions, boss, at)
+    progress.event(game.conn, "exam_passed", boss.key, at, {"exempted": len(exempted)})
+    progress.set_mode(game.conn, "normal", None, at)
+    return exempted
+
+
 def cmd_check(game: Game, rest: list[str]) -> int:
     m, code = target(game, rest)
     if m is None:
@@ -67,7 +75,7 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if attempt is None:
         print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
         return USAGE
-    conn, xp = game.conn, None
+    conn, xp, exempted = game.conn, None, []
     with state.transaction(conn):
         progress.start(conn, m, attempt.at)
         progress.record_attempt(conn, m, attempt)
@@ -75,6 +83,8 @@ def cmd_check(game: Game, rest: list[str]) -> int:
         if attempt.passed and row["status"] == "in_progress":
             xp = rewards.mission_xp(m.xp, row["hints_used"], row["fails"], row["solution_seen"])
             progress.pass_mission(conn, m, xp, attempt.at)
+            if progress.mode(conn) == "exam" and progress.mode_mission(conn) == m.key:
+                exempted = _finish_exam(game, m, attempt.at)
     if not attempt.passed:
         print(ui.paint("다시 quest check로 처음부터 다시 봅니다. 막히면 quest hint", "dim"))
         return FAIL
@@ -85,6 +95,9 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     print(ui.paint(f"🎉 통과! +{xp} XP" + (" (원샷 보너스)" if one_shot else ""), "green"))
     if m.cards:
         print(f"🃏 카드 {len(m.cards)}장이 복습 덱에 들어갔습니다.")
+    if exempted:
+        total = sum(x for _, x in exempted)
+        print(f"🏁 승급 시험 통과! 남은 미션 {len(exempted)}개를 면제하고 +{total} XP")
     nxt = progress.current(game.missions, progress.statuses(conn))
     print(f"다음 미션: {line(nxt)} → quest mission" if nxt else "🎉 모든 코어 미션을 마쳤습니다.")
     return OK

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from quest.commands.common import OK, Game, line, target
+from quest.commands.common import OK, Game, line, mode_target, target
 from quest.core import progress, review, state, ui
 from quest.core.mission import CHECK_KINDS, Mission
 
@@ -12,7 +12,7 @@ from quest.core.mission import CHECK_KINDS, Mission
 def cmd_home(game: Game, rest: list[str]) -> int:
     conn = game.conn
     status = progress.statuses(conn)
-    m = progress.current(game.missions, status)
+    m = mode_target(game) or progress.current(game.missions, status)
     if progress.active_incident(conn):
         print(ui.paint("🚨 진행 중인 장애가 있습니다. quest incident status", "red"))
     ch = m.ch if m else game.missions[-1].ch

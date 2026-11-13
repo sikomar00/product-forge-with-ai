@@ -4,6 +4,7 @@ SOLUTION_RATE = 0.2
 ONE_SHOT_RATE = 0.2
 HINT_PENALTY = 0.2
 MIN_RATE = 0.4
+EXAM_SKIP_RATE = 0.5
 
 
 def mission_xp(xp: int, hints: int, fails: int, solution_seen: bool) -> int:
@@ -14,3 +15,8 @@ def mission_xp(xp: int, hints: int, fails: int, solution_seen: bool) -> int:
     if fails == 0 and hints == 0:
         earned += round(xp * ONE_SHOT_RATE)
     return earned
+
+
+def exam_skip_xp(xp: int) -> int:
+    """승급 시험으로 면제된 미션 하나의 보상(Spec "보상")."""
+    return round(xp * EXAM_SKIP_RATE)
