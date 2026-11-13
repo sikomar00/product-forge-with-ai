@@ -59,6 +59,7 @@ lock_threshold = 20                   # 복습 잠금 기준(UJ 결정 3)
 ```
 quest/
 ├── cli.py            # 명령 해석(IA-1~IA-20), 종료 코드
+├── commands/         # 명령 구현(2026-11-13, cli.py가 500줄 규칙을 넘지 않게 나눔). common·play·assist·…
 ├── core/
 │   ├── config.py     # 설정·경로(QUEST_HOME, QUEST_CONFIG)
 │   ├── state.py      # SQLite 연결·스키마 적용·트랜잭션
