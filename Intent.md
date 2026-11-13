@@ -21,8 +21,8 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-7의 남은 IA-10 goals. 졸업 기준 충족 판정 방법이 문서에 없어 사용자 결정을 기다린다(추천: content.toml에 영역별 미션 키 목록, 면제는 인정 안 함). 그다음 T0-8 S1 회귀.
-- T0-7 일부 완료(2026-11-13): IA-6 `map`, IA-11 `stats`(`--sql` 읽기 전용), IA-15 `status --json`, IA-17 `reset`(백업, `reset_backup`). T0-6 코드 리뷰(medium) 지적 10건 중 8건 반영, 1건(0장 복습일 인정)은 의도대로 유지, 1건(인자 3개 이하 규칙 위반 함수들)은 별도 리팩터링으로 미룸.
+- 다음 작업: T0-8 S1 회귀(사용자 + AI, Windows). S1 리포를 읽기 전용으로 받아야 한다. 그다음 T0-9 M0 게이트.
+- T0-7 완료(2026-11-13): IA-6 `map`, IA-10 `goals`(content.toml [goals], 면제 불인정, 면제 미션 직접 통과 시 인정), IA-11 `stats`(`--sql` 읽기 전용·ATTACH 차단), IA-15 `status --json`, IA-17 `reset`. T0-6 리뷰 10건 중 8건, T0-7 리뷰 9건 중 7건 반영(나머지는 Spec·채팅에 이유 기록). 미룬 것: 인자 3개 이하 규칙 위반 함수 정리(별도 리팩터링, 사용자 결정 대기).
 - T0-6 완료(2026-11-13): `cli.py`를 `quest/commands/`로 나눔. 문항형 채점·확신도·설명 게이트(`core/answers.py`, `commands/ask.py`·`grade.py`), 카드 복습·잠금·연속 복습일·재구성 복습·지연 확인 퀴즈(`core/review.py`, `commands/study.py`), 승급 시험·돌아가기(`commands/modes.py`). 정해진 세부 규칙은 Spec에 "(T0-6)"으로 적었다.
 - T0-5 완료(2026-11-13): `core/spoiler.py`(obf1), `quest hint`·`quest solution`(감점 안내 후 [y/N] 확인, `hint_opened`·`solution_viewed` 기록). 콘텐츠 검증이 난독화 문자열을 실제로 풀어 본다. 끝낸 미션의 모범 답안은 감점 없이 보이고 기록하지 않는다(AI 판단, 리뷰 필요).
 - T0-4 완료(2026-11-13): `core/progress.py`·`core/rewards.py`(계산만)·`core/ui.py`·`kinds/ops.py`·`cli.py`. 가짜 실습 미션이 홈 → 미션 → 채점 → 통과까지 돈다(IA-1·2·3·16, 종료 코드 0·1·2·3). 뒤 단계로 미룬 것: 설명 게이트·복습 잠금·연속 복습일·배지(T0-6), 나머지 이벤트(T0-7), `quest hint`(T0-5).

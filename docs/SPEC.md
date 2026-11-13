@@ -176,6 +176,13 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 이벤트 22종(ERD)을 해당 시점에 남긴다. 값(`payload`)에는 키·숫자만 넣는다.
 - `quest stats`: 장별 진행과 예상·실제 시간(`v_mission_time`), 힌트 사용률(`v_hint_rate`), 확신했는데 틀린 비율(`v_overconfidence`), MTTR(`v_mttr`). `--sql`은 위의 읽기 전용 연결을 쓴다.
 
+### 졸업 기준 `quest goals` (IA-10, 2026-11-13 결정)
+
+- 콘텐츠의 `content.toml`에 `[goals]` 표를 두고, 영역 ID(`ai_collab`·`planning`·`design`·`backend`·`async`·`frontend`·`testing`·`git_cicd`·`deploy`·`ops`·`security`·`ai_product`·`analytics`)마다 미션 키 목록을 적는다. 그 미션을 모두 **통과**하면 충족이다. 영역 이름·순서는 design.md 2.2절이고 엔진(`core/goals.py`)에 둔다.
+- 승급 시험으로 면제된 미션은 인정하지 않는다(졸업 기준은 실제 산출물 검사). 화면이 "면제됨 → `quest mission <ID>`로 직접 하면 충족"을 안내한다.
+- 면제된 미션을 직접 다시 해서 통과하면 상태가 통과로 바뀐다. 보상은 면제 때 받은 50% 그대로이고, 🤝·🚀 미션이면 설명 게이트도 다시 본다. 다시 시작할 때 시작 시각을 채운다.
+- 불러올 때 검사: 모르는 영역, 빈 목록, 콘텐츠에 없는 미션 키는 오류다. 목록이 없는 영역은 "콘텐츠 준비 전"이다.
+
 ### `quest status --json` (M0-16)
 
 ```json
@@ -196,6 +203,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 
 - `quest reset`: 확인 문구 `초기화`를 입력해야 실행된다. `sqlite3.Connection.backup()`으로 `backups/state-<시각>.db`를 만든 뒤 DB를 새로 만들고, 첫 이벤트 `reset_backup`에 백업 파일 이름을 남긴다.
 - 복원: 게임을 끈 상태에서 백업 파일을 `state.db`로 복사한다. `quest help`에 방법을 적는다.
+- (T0-7 리뷰 반영) 진행 중인 장애가 있으면 초기화하지 않는다(지우면 `abort`가 되돌릴 기록을 잃는다). 같은 초에 백업을 또 만들면 `-2`, `-3`을 붙여 앞 백업을 덮지 않는다. 상태 DB를 지우지 못하면(다른 프로그램이 열고 있음) 환경 오류로 알리고 백업 위치를 알려 준다. `stats --sql`은 `ATTACH`를 권한 검사로 막는다(빈 파일도 만들지 못하게). 홈과 `status --json`은 읽기만 하고, 잠금 on·off는 새 미션 시작·시험 시작·복습 끝에서만 기록한다. 장 완료 방식 `exam`은 보스의 `exam_passed` 기록으로 정한다.
 - (T0-7 결정) 확인 문구가 정확히 `초기화`가 아니면 아무것도 하지 않는다. `quest stats --sql`은 `mode=ro`에 더해 `PRAGMA query_only`를 켜서, `ATTACH`한 다른 파일에도 쓰지 못하게 한다. 한 번에 한 문장만 실행된다.
 
 ### M0 시험 (게이트와 대응)
