@@ -23,5 +23,14 @@ jobs:
           version: "0.13.6"
       - run: uv sync --locked
       - run: uv run ruff check
+      # S1 회귀(M0-17)용. 읽기만 하고, ruff가 S1 코드를 검사하지 않게 ruff 다음에 받는다.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sikomar00/sailingstone-quest
+          ref: 513ec5891c7fdea0ae01c9cec14505c3103e8e09
+          path: s1
+          persist-credentials: false
       - run: uv run pytest
+        env:
+          QUEST_S1_REPO: ${{ github.workspace }}/s1
       - run: uv run python docs/ddl/run_checks.py
