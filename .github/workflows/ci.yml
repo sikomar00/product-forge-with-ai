@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main, "engine/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # 플레이는 맥(Apple Silicon), 작업은 Windows에서 먼저 하므로 맥에서 깨지는 것을 push 때 잡는다(Plan v1.1).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+      - run: uv sync --locked
+      - run: uv run ruff check
+      # S1 회귀(M0-17)용. 읽기만 하고, ruff가 S1 코드를 검사하지 않게 ruff 다음에 받는다.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sikomar00/sailingstone-quest
+          ref: 513ec5891c7fdea0ae01c9cec14505c3103e8e09
+          path: s1
+          persist-credentials: false
+      - run: uv run pytest
+        env:
+          QUEST_S1_REPO: ${{ github.workspace }}/s1
+      - run: uv run python docs/ddl/run_checks.py

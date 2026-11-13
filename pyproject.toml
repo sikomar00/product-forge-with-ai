@@ -1,0 +1,48 @@
+[project]
+name = "quest"
+version = "0.1.0"
+description = "Product Forge With AI 터미널 학습 게임 엔진"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+quest = "quest.cli:main"
+
+# 개발 환경과 플레이 환경이 같아서(Plan) `quest selftest`도 이 그룹의 pytest를 쓴다.
+# pandas는 S1 회귀 테스트(T0-8) 전용이다.
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.2",
+    "pandas==3.0.3",
+]
+
+[build-system]
+requires = ["uv_build==0.13.6"]
+build-backend = "uv_build"
+
+# 시스템 Python마다 SQLite 버전이 달라서(러너에서 3.46~3.54) uv가 관리하는 같은 빌드만 쓴다.
+[tool.uv]
+python-preference = "only-managed"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C901", "PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0913"]  # 시험 함수의 인자는 pytest가 넣는 픽스처·매개변수다
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 3  # rules/code.md 인자 3개 이하
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

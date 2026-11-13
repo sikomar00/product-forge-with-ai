@@ -1,18 +1,18 @@
-# Plan v1.0 — M0(엔진)·M1(0~4장) 구현 (승인 2026-11-09)
+# Plan v1.1 — M0(엔진)·M1(0~4장) 구현 (승인 2026-11-09, v1.1 2026-11-13)
 
 ## Context
 하네스 1~6단계 문서가 모두 승인됐다(GLOSSARY, ADR-0001~0009, IA v1.2, UJ v1.1, PRD v1.2, ERD v1.0, Spec v1.0). 코드는 아직 없다. 이 Plan은 PRD의 M0·M1을 게이트까지 만드는 순서와 분담, 라이브러리, 사용자 작업을 정한다. 이 Plan을 승인하면 **아래 라이브러리 목록과 사용자 작업도 함께 승인한 것으로 본다.** 승인 범위 안에서는 끊지 않고 진행하고, 범위 밖(main 머지·PR·삭제·새 라이브러리·비용)은 멈춰서 묻는다.
 
 2026-11-09 Plan 인터뷰 결정:
 1. 시작일(W1)은 날짜가 아니라 조건이다. **M0 게이트 통과 + 0장 부분 완료**(0장 콘텐츠, `quest doctor`, `quest update`)가 되면 시작한다. 첫 세로 조각(T0-4)을 마치면 실측으로 예상 날짜를 다시 계산해 알린다.
-2. 엔진은 사용자가 **맥 로컬 Claude Code**로 바이브코딩한다. OrbStack 랩은 macOS 전용이라 맥에서만 확인할 수 있다.
+2. 엔진은 사용자가 **로컬 Claude Code**로 바이브코딩한다. 2026-11-13 변경: **Windows에서 할 수 있는 만큼 먼저 하고, 맥에서 클론받아 마무리한다.** 작업은 GitHub 작업 브랜치로 옮긴다. OrbStack 랩(T1-4)·실제 장애 주입(T1-3)·맥 SQLite 버전 확인·M0 게이트 최종 확인은 맥에서 한다. Windows에서 깔린 도구: uv 0.13.6(2026-10-27), Python 3.14.10(SQLite 3.53.1, DDL 점검 67/67).
 3. 콘텐츠 리포 이름은 `product-forge-content`(비공개, 사용자가 만든다).
 4. S1 회귀 테스트에는 **테스트 전용 pandas 3.0.3**을 쓴다.
 
 ## 분담
 | 누가 | 무엇 | 어디서 |
 | --- | --- | --- |
-| 사용자 + AI(바이브코딩) | 엔진 구역: T0-1~T0-9, T1-1~T1-5 | 맥 로컬 Claude Code, 엔진 리포 |
+| 사용자 + AI(바이브코딩) | 엔진 구역: T0-1~T0-9, T1-1~T1-5 | Windows 로컬 Claude Code에서 먼저, 맥 로컬 Claude Code에서 마무리. 엔진 리포 |
 | AI | 콘텐츠 구역: T1-6~T1-10, 문서 갱신 | 클라우드 세션, 콘텐츠 리포(엔진 작업 세션에는 연결하지 않는다) |
 | 사용자 직접 | 리포·계정 생성, 비밀값 입력, 머지 승인 | GitHub, 맥 |
 
@@ -27,6 +27,7 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 | `pytest` | 9.2.0 | 개발·`quest selftest` | 테스트. Tech Radar가 같은 버전으로 시험 351개를 돌리는 중. 2026-10-27 출시(13일 전) |
 | `ruff` | 0.17.2 | 개발 | 린터·포매터. 순환 복잡도 규칙(C901). 2026-10-22 출시. 최신 0.17.4는 4일밖에 안 돼서 뺐다 |
 | `pandas` | 3.0.3 | S1 회귀 테스트 전용 | S1 Python 미션 10개 채점. S1을 만든 날(2026-10-12)의 최신 버전(날짜로 한 추정). Python 3.14 맥 arm64·리눅스 빌드 있음. 하위 의존성 numpy ≥ 2.3.3, python-dateutil |
+| `uv_build` | 0.13.6 | 빌드 백엔드 | `quest` 명령 설치용. uv와 같은 버전(2026-10-27). 2026-11-13 추가 승인 |
 
 - 엔진 실행에 필요한 외부 라이브러리는 없다. argparse, sqlite3, tomllib, zoneinfo, importlib, subprocess, urllib·ssl(http 체크), zlib·base64(난독화), json, xml.etree(JUnit XML), dataclasses, pathlib을 쓴다. httpx는 쓰지 않는다(Spec "Plan에서 정한다" → 표준 라이브러리로 충분).
 - 하위 의존성의 정확한 버전은 `uv lock`이 만든 `uv.lock`으로 고정하고 T0-1에서 목록을 보고한다.
@@ -34,21 +35,21 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 
 ## 사용자 작업 (필요한 시점에 다시 알려 드린다)
 1. (T0-0) 문서 브랜치 `claude/harness-setup`을 main에 머지하는 PR을 승인한다. 지난 브랜치 `claude/design-v0.3` 삭제도 GitHub에서 직접 한다(세션에서는 삭제가 막혀 있다).
-2. (T0-1 전) 맥에서 엔진 리포를 받고 `uv`가 있는지 확인한다. 맥 로컬 Claude Code를 엔진 리포에서 연다(CLAUDE.md 하네스가 자동으로 적용된다).
+2. (T0-1 전, 완료 2026-11-13) Windows에 uv·Python 3.14를 깔았다. (맥으로 옮길 때) 맥에서 먼저 `scripts/check-mac.sh`로 이미 설치된 것과 빠진 것을 본다(읽기만 하고 아무것도 설치하지 않는다). 리포를 받기 전이면 스크립트만 받아 읽어 본 뒤 실행한다: `curl -fsSL https://raw.githubusercontent.com/sikomar00/product-forge-with-ai/main/scripts/check-mac.sh -o check-mac.sh && bash check-mac.sh`. 마지막에 나오는 '필요한 것'만 차례로 하고, 엔진을 받은 뒤에는 `uv run quest doctor`로 다시 본다. 그다음 맥에서 엔진 리포를 `git clone`하고(main, PR #3으로 머지됨) `uv sync`를 하고, 맥 로컬 Claude Code를 엔진 리포에서 연다(CLAUDE.md 하네스가 자동으로 적용된다).
 3. (T1-6 전) GitHub에서 비공개 리포 `product-forge-content`를 만들고, 콘텐츠 작업용 클라우드 세션에 연결한다.
 4. (T1-9 전, 2장 출시 점검) 자동화 전용 GitHub 머신 계정 1개를 만들고, 토큰을 `product-forge-content`의 Actions 비밀값에 직접 넣는다. 채팅에는 붙이지 않는다.
 5. (UJ-1) 맥에서 `gh auth login`을 한다. `quest update`가 처음에 `gh auth setup-git`을 안내한다.
 
 ## M0 작업 순서 (PRD M0-01~19, 게이트와 대응) — 사용자 + AI
 - **T0-0 문서 마무리**(AI): `docs/PLAN.md`(이 Plan), `Intent.md`(하네스 8단계) 작성. CLAUDE.md 6절에 "엔진 작업 중 AI는 콘텐츠 위치(`~/.local/share/quest/content`)를 읽지 않는다"를 더한다. 문서 브랜치 PR(사용자 승인).
-- **T0-1 리포 기본** 📐2~3h: `pyproject.toml`(Python 3.14, 위 라이브러리), `uv.lock`, ruff 설정, GitHub Actions(ruff·pytest·DDL 점검·500줄 검사), `.gitignore` 보강.
+- **T0-1 리포 기본** 📐2~3h: `pyproject.toml`(Python 3.14, 위 라이브러리), `uv.lock`, ruff 설정, GitHub Actions(ruff·pytest·DDL 점검·500줄 검사, ubuntu·macos 러너 둘 다), `.gitignore` 보강, `.gitattributes`(`* text=auto eol=lf`, Windows 줄바꿈 차단).
 - **T0-2 상태 DB** 📐3~5h: `core/config.py`(QUEST_HOME·QUEST_CONFIG), `core/state.py`, `core/schema/v1_0.sql`, SQLite 버전 확인. 시험: 스키마 비교, DDL 점검 67개(M0-03, M0-19).
 - **T0-3 콘텐츠 불러오기와 가짜 콘텐츠** 📐4~6h: Spec의 미션 스키마 dataclass, 불러오기·검증·호환 확인, `tests/fixtures/fake_content/`(8가지 유형)(M0-04, M0-05, M0-18).
 - **T0-4 첫 세로 조각** 📐5~8h: `progress.py`, `kinds/ops.py`, IA-1 홈·IA-2 미션·IA-3 채점·IA-16 도움말. 가짜 실습 미션 하나가 처음부터 끝까지 돈다. **여기서 실제 걸린 시간을 재고 W1 예상일을 다시 계산한다.**
 - **T0-5 보상·힌트·모범 답안** 📐3~5h: `rewards.py`(S1 `on_success`와 같은 계산), `spoiler.py`(`obf1:`), IA-4·IA-5(M0-08, M0-09).
 - **T0-6 나머지 유형·복습·잠금·시험** 📐6~10h: `kinds/` 나머지, 설명 게이트·확신도, `review.py`(Leitner·재구성·지연 확인 퀴즈), 복습 잠금, IA-7·IA-8·IA-9(M0-07, M0-10~M0-14).
 - **T0-7 기록과 상태 출력** 📐5~8h: 이벤트 22종, IA-6 지도·IA-10 goals·IA-11 stats(`--sql` 읽기 전용)·IA-15 `status --json`·IA-17 reset(백업)(M0-06, M0-15, M0-16).
-- **T0-8 S1 회귀** 📐4~8h: `tests/` 안의 S1 어댑터, S1 리포를 읽기 전용으로 참조해 52개 모범 답안 채점·XP 비교(M0-17).
+- **T0-8 S1 회귀** 📐4~8h: `tests/` 안의 S1 어댑터, S1 리포를 읽기 전용으로 참조해 52개 모범 답안 채점·XP 비교(M0-17). (완료 2026-11-13: S1 = `sikomar00/sailingstone-quest` 커밋 `513ec58`. 맥으로 옮길 때도 엔진 리포 밖에 받고 `QUEST_S1_REPO`를 설정한다.)
 - **T0-9 M0 게이트** 📐2~3h: 게이트 숫자 보고, `code-review` 스킬, QA(`rules/qa.md` → `docs/qa-guide.md`), 승인.
 - M0 합계 📐34~56h(근거 있는 실측 없음. T0-4 뒤에 다시 계산).
 
@@ -74,7 +75,8 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 | OrbStack 미확인 3건 | T1-4 첫머리에서 확인. 안 되면 Lima 전환을 묻는다 |
 | pandas 3.0.3과 S1 코드가 맞지 않을 수 있다 | T0-8에서 실패하면 원인을 보고하고 버전을 다시 정한다 |
 | GitHub 러너에서 systemd를 못 쓸 수 있다 | VM 미션 플레이스루를 맥에서 돌리고 개수만 보는 방식으로 바꾼다 |
-| 맥 로컬 AI가 콘텐츠를 읽을 수 있다 | 콘텐츠는 엔진 리포 밖에 있고, CLAUDE.md에 읽지 않는 규칙을 더한다(T0-0) |
+| Windows에서 되던 것이 맥에서 깨진다(줄바꿈·경로·SQLite 버전) | `.gitattributes`로 LF 고정, 경로는 `pathlib`만, CI를 macos 러너에서도 돌린다. 맥으로 옮기면 게이트 숫자를 맥에서 다시 잰다 |
+| 로컬 AI가 콘텐츠를 읽을 수 있다 | 콘텐츠는 엔진 리포 밖에 있고, CLAUDE.md에 읽지 않는 규칙을 더한다(T0-0) |
 
 ## 검증
 - 엔진: `uv run ruff check`, `uv run pytest`(통과 수 보고), `python docs/ddl/run_checks.py`(67/67), 스키마 비교, S1 회귀 52/52, `status --json` 키 시험, 500줄 검사가 모두 CI에서 초록이어야 한다.
