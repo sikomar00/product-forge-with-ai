@@ -197,14 +197,18 @@ def _confirm(question: str) -> bool:
     return answer.strip().lower() in ("y", "yes", "ㅛ")  # ㅛ: 한글 자판 상태에서 누른 y
 
 
-def _open_row(game: Game, rest: list[str]) -> tuple[Mission | None, sqlite3.Row | None, int]:
-    """대상 미션을 시작 상태로 만들고 (미션, 진행 행, 종료 코드)를 돌려준다."""
+NOT_STARTED = {"status": "in_progress", "hints_used": 0, "fails": 0, "solution_seen": 0}
+
+
+def _open_row(game: Game, rest: list[str]) -> tuple[Mission | None, dict | sqlite3.Row, int]:
+    """(미션, 진행 행, 종료 코드). 아직 시작 전이면 빈 진행 값을 준다.
+
+    시작 기록은 학습자가 확인한 뒤에 남긴다. 묻기만 하고 안 열었으면 시작한 것이 아니다.
+    """
     m, code = _target(game, rest)
     if m is None:
-        return None, None, code
-    with state.transaction(game.conn):
-        progress.start(game.conn, m, state.now_utc())
-    return m, progress.progress_row(game.conn, m.key), OK
+        return None, NOT_STARTED, code
+    return m, progress.progress_row(game.conn, m.key) or NOT_STARTED, OK
 
 
 def cmd_hint(game: Game, rest: list[str]) -> int:
@@ -224,8 +228,10 @@ def cmd_hint(game: Game, rest: list[str]) -> int:
     if not _confirm(question):
         print("열지 않았습니다.")
         return OK
+    at = state.now_utc()
     with state.transaction(game.conn):
-        level = progress.open_hint(game.conn, m, state.now_utc())
+        progress.start(game.conn, m, at)
+        level = progress.open_hint(game.conn, m, at)
     print(ui.paint(f"💡 힌트 {level}/{len(m.hints)}", "yellow"))
     print(spoiler.reveal(m.hints[level - 1]))
     if level == len(m.hints):
@@ -248,8 +254,10 @@ def cmd_solution(game: Game, rest: list[str]) -> int:
         if not _confirm(question):
             print("보지 않았습니다.")
             return OK
+        at = state.now_utc()
         with state.transaction(game.conn):
-            progress.view_solution(game.conn, m, state.now_utc())
+            progress.start(game.conn, m, at)
+            progress.view_solution(game.conn, m, at)
     print(ui.paint("📖 모범 답안", "bold"))
     print(spoiler.reveal(m.solution))
     return OK

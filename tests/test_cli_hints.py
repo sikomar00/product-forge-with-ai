@@ -26,12 +26,29 @@ def test_hint_asks_first_and_shows_penalty(game: Path, quest: Quest, answers: li
     answers.append("n")
     code, out = quest("hint")
     assert code == 0 and "힌트 1단계를 열면 보상이 12 → 8 XP" in out and "열지 않았습니다" in out
-    assert _row(game, "hints_used") == (0,)
+    assert _row(game, "hints_used") is None  # 안 열었으니 시작 기록도 없다
 
 
 def test_no_input_means_no(game: Path, quest: Quest, answers: list[str]) -> None:
+    quest("mission")
     code, out = quest("hint")
     assert "열지 않았습니다" in out and _row(game, "hints_used") == (0,)
+
+
+def test_declining_does_not_start_mission(game: Path, quest: Quest, answers: list[str]) -> None:
+    answers.extend(["n", "n"])
+    quest("hint")
+    quest("solution")
+    assert _row(game, "hints_used") is None
+    assert _events(game) == []
+
+
+def test_hint_before_viewing_mission_starts_it(
+    game: Path, quest: Quest, answers: list[str]
+) -> None:
+    answers.append("y")
+    quest("hint")
+    assert [k for k, _ in _events(game)] == ["mission_started", "hint_opened"]
 
 
 def test_three_hints_then_solution_guidance(game: Path, quest: Quest, answers: list[str]) -> None:
