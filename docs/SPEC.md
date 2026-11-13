@@ -93,6 +93,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - `Ctx`: 체크와 `solve`가 받는 맥락. `workdir`(OpsDesk 리포 또는 샌드박스), `config`, `lab`(VM 이름), `gh`(GitHub 호출기. 실제 호출 또는 기록 재생), `now`.
 - 2026-11-13 T0-3 결정(구현: `quest/core/mission.py`):
   - 문항 `Item.kind`는 `choice`(하나 고르기)·`multi`(여러 개 고르기, 같은 집합이어야 정답)·`order`(순서 맞추기)·`regex`(단답·드릴·예측 입력) 4가지다. 결정 미션의 근거 체크는 `multi`다.
+  - (T0-6) `choice`·`multi`·`order`의 정답은 보기 번호(1부터)다: `"2"`, `"1,3"`(순서 무관), `"3,1,2"`(보기를 모두 한 번씩). `regex`는 학습자 입력에서 정답 정규식을 찾는다(`re.search`, 앵커는 콘텐츠가 쓴다). 확신도는 `ask_confidence=True`인 문항에서만 묻는다. 채점 중 정답은 보여 주지 않는다. 불러올 때 정답이 보기 범위와 맞는지, 정규식이 컴파일되는지 검사한다(`core/answers.py`).
   - design.md 8.3절의 `concept`·`usage`·`domain`·`tool_maps`는 `cards` 하나로 합친다. IA-2는 이 카드를 보여 주고, 통과하면 같은 카드가 복습 덱에 들어간다. 객관식(`choice`) 카드는 뒷면이 정답이고 보기 안에 있어야 한다.
   - `predict`·`decision` 객체 대신 `items`를 쓴다. `chaos`·`rca`·`audit` 상세는 T1-3에서 더한다. M0에서 감사·장애 미션은 체크로 채점한다.
   - 체크로 채점하는 유형(ops·audit·incident·boss)은 체크가, 문항으로 채점하는 유형(quiz·predict·drill·decision)은 문항이 하나 이상 있어야 한다. `DELAYED_QUIZ`는 문항 10개다.
