@@ -79,11 +79,25 @@ def test_exam_refusals(ch1: Path, quest: Quest) -> None:
     assert "이미 시험 모드" in quest("exam")[1]
     quest("back")
     (ch1 / "boss.txt").write_text("x", encoding="utf-8")
-    assert quest("check", "1-B")[0] == 0  # 시험 없이 보스 통과
-    conn = _db(ch1)
-    assert _completed_via(conn) == "boss"
+    assert quest("check", "1-B")[0] == 0  # 시험 없이 보스를 먼저 통과
     code, out = quest("exam")
     assert code == 2 and "이미 통과" in out
+
+
+def test_chapter_completes_only_when_core_missions_are_done(
+    ch1: Path, quest: Quest, answers: list[str]
+) -> None:
+    (ch1 / "boss.txt").write_text("x", encoding="utf-8")
+    quest("check", "1-B")  # 보스를 ID로 먼저 통과해도
+    conn = _db(ch1)
+    assert _completed_via(conn) is None  # 남은 코어 미션(1-1, 1-2)이 있어 장은 안 끝난다
+    (ch1 / "fixed.txt").write_text("x", encoding="utf-8")
+    answers.append("2")  # 1-1 🚀 설명 게이트
+    quest("check", "1-1")
+    assert _completed_via(conn) is None
+    (ch1 / "recovered.txt").write_text("x", encoding="utf-8")
+    quest("check", "1-2")
+    assert _completed_via(conn) == "boss"  # 선택 미션 1-3은 상관없다
 
 
 def test_no_exam_during_review_lock(ch1: Path, quest: Quest) -> None:

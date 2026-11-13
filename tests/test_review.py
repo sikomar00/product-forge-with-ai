@@ -116,3 +116,31 @@ def test_review_lock_blocks_only_new_missions(
     )
     kinds = [k for (k,) in rows]
     assert kinds == ["review_lock_on", "review_lock_off"]
+
+
+def test_cards_of_removed_missions_never_lock(game: Path, quest: Quest) -> None:
+    """콘텐츠에서 지운 미션의 카드는 DB에 남아도 잠금·복습에 세지 않는다."""
+    quest()
+    conn = _db(game)
+    conn.execute(
+        "INSERT INTO mission_progress (mission_key, display_id, chapter, status, how, started_at,"
+        " completed_at, est_min, ai_tag) VALUES ('m_deadbeef', '0-9', 0, 'passed', 'normal',"
+        " '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 5, 'solo')"
+    )
+    conn.execute(
+        "INSERT INTO cards (card_key, mission_key, kind, added_at, due_at) VALUES"
+        " ('c_deadbeef', 'm_deadbeef', 'concept', '2026-01-01T00:00:00Z', '2020-01-01T00:00:00Z')"
+    )
+    cfg = game.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", "= 1"), encoding="utf-8")
+    code, out = quest()
+    assert "복습 잠금" not in out and "오늘 복습할 카드: 0장" in out
+    assert quest("mission")[0] == 0
+
+
+@pytest.mark.parametrize("value", ['"twenty"', "-1", "true", "2.5"])
+def test_bad_lock_threshold_is_env_error(game: Path, quest: Quest, value: str) -> None:
+    cfg = game.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace("= 20", f"= {value}"), encoding="utf-8")
+    code, out = quest()
+    assert code == 3 and "lock_threshold" in out

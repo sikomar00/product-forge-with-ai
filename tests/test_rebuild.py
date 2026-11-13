@@ -27,6 +27,9 @@ def test_rebuild_in_sandbox(game: Path, quest: Quest, answers: list[str]) -> Non
     assert [p.name[:4] for p in sandboxes] == ["0-1-"]
     assert "현재 미션: 0-1" in quest()[1] and "[복습 모드]" in quest()[1]
 
+    code, out = quest("solution")  # 답을 베끼지 못하게
+    assert code == 2 and "볼 수 없습니다" in out
+    assert quest("hint")[0] == 2
     code, out = quest("check")  # 리포에는 hello.txt가 있지만 샌드박스는 비어 있다
     assert code == 1 and "hello.txt 없음" in out
     (sandboxes[0] / "hello.txt").write_text("again", encoding="utf-8")
