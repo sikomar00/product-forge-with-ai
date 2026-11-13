@@ -1,14 +1,7 @@
 """가짜 콘텐츠 공용 도구. ch*.py 패턴이 아니라서 장 파일로 불러오지 않는다."""
 
-import base64
-import zlib
-
 from quest.core.mission import Card, Check, Ctx, Item, Result
-
-
-def obf(text: str) -> str:
-    return "obf1:" + base64.b64encode(zlib.compress(text.encode("utf-8"))).decode("ascii")
-
+from quest.core.spoiler import obfuscate as obf
 
 HINTS = (obf("방향 1"), obf("방향 2"), obf("구체 명령"))
 
