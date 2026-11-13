@@ -4,6 +4,8 @@
 
 ## M0 게이트 (2026-11-13, 브랜치 `engine/windows-setup`)
 
+**사용자 승인: 2026-11-13.** 사용자 QA(U1~U6)는 아직 미확인이고 맥으로 옮긴 뒤 한다.
+
 환경: Windows 11 + uv 0.13.6 + Python 3.14.10 + SQLite 3.53.1. CI(GitHub Actions ubuntu·macos)도 같은 Python·SQLite 빌드다.
 
 | 게이트 (PRD M0) | 확인 방법 | 기대 | 실제 | 결과 |
