@@ -58,8 +58,9 @@ COMMANDS = {
 
 def _utf8_console() -> None:
     if sys.platform == "win32":  # Windows 기본 코드 페이지로는 이모지·한글이 깨진다
-        for stream in (sys.stdout, sys.stderr):
-            stream.reconfigure(encoding="utf-8")
+        for stream in (sys.stdin, sys.stdout, sys.stderr):  # 파이프로 넣은 한글 답도 UTF-8로 읽는다
+            if hasattr(stream, "reconfigure"):  # 시험 중 pytest가 바꿔 끼운 stdin에는 없다
+                stream.reconfigure(encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -7,19 +7,32 @@ from quest.core.mission import CHECK_KINDS
 
 
 def cmd_review(game: Game, rest: list[str]) -> int:
+    due = due_now(game)[: review.MAX_CARDS]
+    print(ui.paint(f"🃏 오늘 복습할 카드: {len(due)}장", "bold"))
+    if due and not _review_cards(game, due):
+        return USAGE
+    if not _delayed_quizzes(game):
+        return USAGE
+    _offer_rebuild(game)
+    return OK
+
+
+def _review_cards(game: Game, due: list) -> bool:
+    """만기 카드를 묻고 기록한다. 카드를 1장 이상 복습한 날만 연속 복습일에 든다.
+
+    입력이 중간에 끝나면 False(답한 카드까지는 저장된다).
+    """
     conn = game.conn
     cards = {card.key: card for m in game.missions for card in m.cards}
-    due = due_now(game)[: review.MAX_CARDS]
     with state.transaction(conn) as tx:
         progress.event(tx, "review_started", None, {"cards": len(due)})
-    print(ui.paint(f"🃏 오늘 복습할 카드: {len(due)}장", "bold"))
     correct = 0
     for number, row in enumerate(due, 1):
         print(ui.paint(f"\n[{number}/{len(due)}]", "dim"))
         answer = ask_card(cards[row["card_key"]])
         if answer is None:
             print("복습을 멈췄습니다. 답한 카드까지는 저장했습니다.")
-            return USAGE
+            return False
         with state.transaction(conn) as tx:
             box = review.record_review(tx, row, answer)
         correct += answer[0]
@@ -34,10 +47,7 @@ def cmd_review(game: Game, rest: list[str]) -> int:
     print(f"\n복습 끝: {correct}/{len(due)} 맞힘 · 연속 복습 {days}일")
     if still_locked:
         print("🔒 아직 만기 카드가 많아 새 미션이 잠겨 있습니다. 내일 다시 quest review")
-    if not _delayed_quizzes(game):
-        return USAGE
-    _offer_rebuild(game)
-    return OK
+    return True
 
 
 def _delayed_quizzes(game: Game) -> bool:

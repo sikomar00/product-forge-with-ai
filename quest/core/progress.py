@@ -175,6 +175,13 @@ class Attempt:
     versions: tuple[str, str]  # (엔진, 콘텐츠)
     responses: list[tuple[str, int, bool, int | None]] = field(default_factory=list)
     # (context: mission·explain_gate, 문항 번호, 정답 여부, 확신도)
+    error: bool = False  # 체크가 끝나지 못함(환경 문제 등). 실패로 세지 않는다
+
+
+def _outcome(attempt: Attempt) -> str:
+    if attempt.error:
+        return "error"
+    return "pass" if attempt.passed else "fail"
 
 
 def record_attempt(tx: Tx, m: Mission, attempt: Attempt) -> int:
@@ -185,14 +192,14 @@ def record_attempt(tx: Tx, m: Mission, attempt: Attempt) -> int:
         conn.execute("UPDATE mission_progress SET first_check_at = ? WHERE mission_key = ?",
                      (tx.at, m.key))
         event(tx, "first_check", m.key)
-    if not attempt.passed and row["status"] == "in_progress":
+    if not attempt.passed and not attempt.error and row["status"] == "in_progress":
         conn.execute("UPDATE mission_progress SET fails = fails + 1 WHERE mission_key = ?",
                      (m.key,))
     checks = [{"no": no, "ok": ok} for no, ok in enumerate(attempt.checks, 1)]
     cursor = conn.execute(
         "INSERT INTO attempts (mission_key, display_id, mode, at, outcome, check_results,"
         " engine_version, content_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (m.key, m.id, mode(conn), tx.at, "pass" if attempt.passed else "fail",
+        (m.key, m.id, mode(conn), tx.at, _outcome(attempt),
          json.dumps(checks), *attempt.versions),
     )
     conn.executemany(

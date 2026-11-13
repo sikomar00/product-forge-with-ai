@@ -12,10 +12,11 @@ from quest.core.mission import CHECK_KINDS, Mission
 def cmd_home(game: Game, rest: list[str]) -> int:
     conn = game.conn
     status = progress.statuses(conn)
-    m = mode_target(game) or progress.current(game.missions, status)
+    main_line = progress.current(game.missions, status)  # 등급·장 진행은 실제 진행 기준
+    m = mode_target(game) or main_line  # 화면의 현재 미션은 시험·복습 대상일 수 있다
     if progress.active_incident(conn):
         print(ui.paint("🚨 진행 중인 장애가 있습니다. quest incident status", "red"))
-    ch = m.ch if m else game.missions[-1].ch
+    ch = main_line.ch if main_line else game.missions[-1].ch
     is_locked, due, threshold = lock_view(game)
     if is_locked:
         print(ui.paint(f"🔒 복습 잠금: 만기 카드 {due}장. "
@@ -32,7 +33,7 @@ def cmd_home(game: Game, rest: list[str]) -> int:
         return OK
     mode = ui.MODES[progress.mode(conn)]
     print(f"현재 미션: {line(m)}" + (f" [{mode}]" if mode else ""))
-    started = status.get(m.key) == "in_progress"
+    started = status.get(m.key) == "in_progress" or bool(mode)
     print(ui.paint(f"다음: quest {'check' if started else 'mission'}", "dim"))
     return OK
 

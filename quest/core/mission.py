@@ -25,6 +25,13 @@ CARD_GRADINGS = ("choice", "regex", "self")
 ITEM_FORMATS = ("choice", "multi", "order", "regex")
 
 
+class CheckEnvError(Exception):
+    """도구가 없거나 네트워크가 끊긴 것 같은 환경 문제. 그 시도는 error이고 실패로 세지 않는다.
+
+    메시지는 엔진이 만들고 화면에 그대로 나간다. 정답 위치 같은 힌트를 넣지 않는다(M1-01).
+    """
+
+
 @dataclass(frozen=True)
 class Result:
     ok: bool

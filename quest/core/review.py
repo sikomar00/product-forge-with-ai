@@ -71,9 +71,14 @@ def lock_threshold(cfg: dict) -> int:
     return value
 
 
+def is_locked(due: int, threshold: int) -> bool:
+    """기준이 0이면 잠금을 끈다(학습자가 설정으로 끌 수 있게)."""
+    return threshold > 0 and due >= threshold
+
+
 def sync_lock(tx: Tx, due: int, threshold: int) -> None:
     """잠금 상태가 바뀌었으면 review_lock_on·off를 남긴다. 값은 그때의 만기 카드 수다."""
-    now_locked = due >= threshold
+    now_locked = is_locked(due, threshold)
     last = tx.conn.execute(
         "SELECT kind FROM events WHERE kind IN ('review_lock_on', 'review_lock_off')"
         " ORDER BY event_id DESC LIMIT 1"

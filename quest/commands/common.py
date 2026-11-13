@@ -91,7 +91,7 @@ def due_now(game: Game) -> list[sqlite3.Row]:
 def lock_view(game: Game) -> tuple[bool, int, int]:
     """(잠겼는지, 만기 카드 수, 기준). 읽기만 한다(홈·status --json용)."""
     due, threshold = len(due_now(game)), review.lock_threshold(game.cfg)
-    return due >= threshold, due, threshold
+    return review.is_locked(due, threshold), due, threshold
 
 
 def lock_state(game: Game) -> tuple[bool, int, int]:

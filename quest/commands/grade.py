@@ -3,9 +3,9 @@
 from dataclasses import dataclass, field, replace
 
 from quest.commands.ask import Answered, ask_items
-from quest.commands.common import FAIL, OK, USAGE, Game, line, make_ctx, target, versions
+from quest.commands.common import ENV, FAIL, OK, USAGE, Game, line, make_ctx, target, versions
 from quest.core import badges, progress, review, rewards, state, ui
-from quest.core.mission import CHECK_KINDS, Ctx, Mission, Result
+from quest.core.mission import CHECK_KINDS, CheckEnvError, Ctx, Mission, Result
 from quest.kinds import ops
 
 # 실패한 체크의 설명이 결함·원인 위치를 알려 주므로 숨긴다(IA 결정 4)
@@ -29,6 +29,14 @@ def _show_results(m: Mission, results: list[Result], traps: list[str]) -> None:
         print(ui.paint(f"💡 {message}", "yellow"))
 
 
+def _show_error(exc: Exception) -> None:
+    # 콘텐츠 예외의 메시지에는 체크가 보는 경로 같은 힌트가 들어 있을 수 있어 종류만 보인다
+    reason = str(exc) if isinstance(exc, CheckEnvError) else type(exc).__name__
+    print(ui.paint(f"⚠️ 채점을 끝내지 못했습니다: {reason}", "yellow"))
+    print("실패로 세지 않습니다. 도구·파일·네트워크를 확인하고 다시 quest check."
+          " 계속되면 quest report로 알려 주세요.")
+
+
 def _responses(context: str, answered: list[Answered]) -> list[tuple[str, int, bool, int | None]]:
     return [(context, a.item.no, a.correct, a.confidence) for a in answered]
 
@@ -45,7 +53,11 @@ def _grade(game: Game, m: Mission, done: bool) -> progress.Attempt | None:
     """채점해서 Attempt를 만든다. 문항 답을 끝까지 받지 못하면 None."""
     checks, responses = [], []
     if m.kind in CHECK_KINDS:
-        results, traps = ops.grade(m, _ctx_for(game, m))  # 읽기 전용이라 트랜잭션 밖에서 돌린다
+        try:
+            results, traps = ops.grade(m, _ctx_for(game, m))  # 읽기 전용이라 트랜잭션 밖에서
+        except Exception as exc:  # 콘텐츠 체크가 끝나지 못함: 실패가 아니라 error(Spec 채점 1)
+            _show_error(exc)
+            return progress.Attempt([], False, versions(game.conn), error=True)
         _show_results(m, results, traps)
         checks = [r.ok for r in results]
         passed = all(checks)
@@ -129,20 +141,28 @@ def cmd_check(game: Game, rest: list[str]) -> int:
         print("답을 끝까지 받지 못해 채점을 기록하지 않았습니다.")
         return USAGE
     saved = _save(game, m, attempt)
+    if attempt.error:
+        return ENV
     if not attempt.passed:
         print(ui.paint("다시 quest check로 처음부터 다시 봅니다. 막히면 quest hint", "dim"))
         return FAIL
+    _show_pass(game, m, saved)
+    return OK
+
+
+def _show_pass(game: Game, m: Mission, saved: Saved) -> None:
+    """통과 화면: 재구성 보상, 배지, 다시 하기, 보상·카드·시험 면제, 다음 미션."""
     if saved.rebuilt is not None:
         print(ui.paint(f"🔁 재구성 복습 통과! +{saved.rebuilt} XP", "green"))
-        return OK
+        return
     for key in saved.badges:
         print(ui.paint(f"🏅 배지 획득: {badges.name(key)}", "yellow"))
     if saved.redone:
         print(ui.paint("✅ 면제됐던 미션을 직접 통과했습니다. 졸업 기준에 인정됩니다.", "green"))
-        return OK
+        return
     if saved.xp is None:
         print("✅ 이미 끝낸 미션입니다. 보상은 다시 주지 않습니다.")
-        return OK
+        return
     xp, exempted = saved.xp, saved.exempted
     row = progress.progress_row(game.conn, m.key)
     one_shot = row["fails"] == 0 and row["hints_used"] == 0 and not row["solution_seen"]
@@ -154,4 +174,3 @@ def cmd_check(game: Game, rest: list[str]) -> int:
         print(f"🏁 승급 시험 통과! 남은 미션 {len(exempted)}개를 면제하고 +{total} XP")
     nxt = progress.current(game.missions, progress.statuses(game.conn))
     print(f"다음 미션: {line(nxt)} → quest mission" if nxt else "🎉 모든 코어 미션을 마쳤습니다.")
-    return OK

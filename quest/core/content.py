@@ -125,7 +125,11 @@ def _import(path: Path) -> ModuleType:
 
 
 def _as_tuple(text: str) -> tuple[int, ...]:
-    return tuple(int(part) for part in text.split("."))
+    """'0.2.0', '0.2.0.dev1', '0.2.0rc1' → 앞의 숫자 부분 (0, 2, 0). 꼬리표는 비교에 쓰지 않는다."""
+    found = re.match(r"\d+(?:\.\d+)*", text.strip())
+    if found is None:
+        raise EnvError(f"버전 형식을 읽지 못했습니다: {text!r}")
+    return tuple(int(part) for part in found[0].split("."))
 
 
 def satisfies(spec: str, engine: str) -> bool:

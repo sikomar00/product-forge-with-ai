@@ -6,7 +6,12 @@ from quest.commands.common import OK, USAGE, Game, line
 from quest.core import badges, goals, progress, state, ui
 
 STATUS_LABELS = {None: "안 함", "in_progress": "진행 중", "passed": "✅ 통과", "exempted": "면제"}
-RANK_BANDS = {0: "견습", 5: "주니어", 9: "미들", 14: "시니어 후보"}  # 등급이 시작되는 장
+# 등급이 시작되는 장 → 등급. progress.RANKS(마지막 장, 등급)에서 계산해 두 곳이 어긋나지 않게 한다.
+RANK_BANDS = {
+    first: name for first, (_, name) in zip(
+        (0, *(last + 1 for last, _ in progress.RANKS[:-1])), progress.RANKS, strict=True
+    )
+}
 
 
 def _current_chapter(game: Game) -> int:
@@ -91,7 +96,7 @@ def readonly_connect() -> sqlite3.Connection:
     mode=ro는 상태 DB만 막는다. query_only는 다른 DB 파일에도 쓰지 못하게 하고,
     ATTACH는 빈 파일을 새로 만들 수 있어서 권한 검사로 아예 막는다.
     """
-    conn = sqlite3.connect(f"{state.db_path().as_uri()}?mode=ro", uri=True)
+    conn = sqlite3.connect(f"{state.db_path().resolve().as_uri()}?mode=ro", uri=True)
     conn.execute("PRAGMA query_only = ON")
     conn.set_authorizer(_deny_attach)
     return conn

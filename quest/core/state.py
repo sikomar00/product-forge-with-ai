@@ -53,6 +53,12 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     try:
         _ensure_schema(conn)
+    except sqlite3.DatabaseError as exc:  # 손상됐거나 SQLite 파일이 아님(잘못 복원한 백업 등)
+        conn.close()
+        raise EnvError(
+            f"상태 DB를 읽지 못했습니다({exc}). 파일: {path}. quest help의 '백업에서 되돌리기'를"
+            " 보고 정상 백업을 다시 복사하세요."
+        ) from exc
     except BaseException:
         conn.close()
         raise
