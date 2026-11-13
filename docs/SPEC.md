@@ -60,6 +60,7 @@ lock_threshold = 20                   # 복습 잠금 기준(UJ 결정 3)
 quest/
 ├── cli.py            # 명령 해석(IA-1~IA-20), 종료 코드
 ├── commands/         # 명령 구현(2026-11-13, cli.py가 500줄 규칙을 넘지 않게 나눔). common·play·assist·…
+├── external.py       # 외부 프로그램(git·gh·도구 버전) 실행의 경계(T1-0). core는 모른다
 ├── core/
 │   ├── config.py     # 설정·경로(QUEST_HOME, QUEST_CONFIG)
 │   ├── state.py      # SQLite 연결·스키마 적용·트랜잭션
@@ -227,6 +228,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 
 - 검사: SQLite 3.37 이상, Python 3.14, uv, git, gh와 `gh auth status`, OrbStack(`orb`), 그리고 `content.toml`의 `[tools]`에 적힌 0~4장 도구와 허용 버전.
 - 결과는 도구마다 ✅/❌, 찾은 버전, 설치 명령(Brewfile 줄)이다.
+- (T1-0 결정) `content.toml`의 `[tools]` 형식: `[tools.<이름>]`에 `cmd`(버전을 찍는 명령 목록), `version`(허용 범위, `requires_engine`과 같은 형식, 비면 설치만 본다), `install`(설치 명령), `chapter`(처음 쓰는 장). 지금은 0~4장 도구만 검사한다. 버전은 출력의 첫 'N.N(.N…)'이다. 하나라도 ❌면 종료 코드 3이다. 콘텐츠가 아직 없으면 엔진 쪽만 검사한다.
 
 ### `quest update` (M1-03, UJ-9)
 
@@ -234,6 +236,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 - 다음부터는 `git fetch` 후 `git show origin/<기본 브랜치>:content.toml`로 `requires_engine`을 먼저 확인한다. 맞으면 `git merge --ff-only`, 맞지 않으면 합치지 않고 엔진 갱신을 안내한다.
 - 출력은 바뀐 장과 새 미션 수(미션 키를 비교해 센다)뿐이다. `meta.content_version`을 바꾸고 `content_updated`(값: 이전·새 버전, 새 미션 수)를 남긴다.
 - 인증 실패면 `gh auth login`을, 네트워크 실패면 받아 둔 콘텐츠로 계속하라고 안내한다.
+- (T1-0 결정) 설정의 `content.repo`가 `소유자/이름`이면 GitHub에서 받고(`gh auth setup-git` 먼저), URL이나 있는 경로면 그대로 쓴다(시험·로컬 작업용). 바뀐 장은 커밋 사이의 `content/chNN_*.py` 변경으로 센다.
 
 ### `quest selftest` (M1-04, UJ-10)
 

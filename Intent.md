@@ -21,7 +21,10 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-9 M0 게이트(게이트 숫자 보고, M0 전체 코드 리뷰, 인자 3개 이하 규칙 정리, QA, 승인).
+- 지금 방침(2026-11-13 사용자): Windows에서 할 수 있는 것을 모두 하고 맥으로 넘어간다. M0 게이트 승인은 아직 받지 않았다(숫자·QA는 `docs/qa-guide.md`).
+- 다음 작업: T1-1 체크 프리미티브(fs·shell·git·github·http, ssh는 로직만), T1-2 selftest·report, T1-3 장애 주입 로직, T1-5 리뷰봇 로직. 맥 전용: T1-4 OrbStack 랩, 실제 주입, 사용자 QA U1·U6.
+- T1-0 완료(2026-11-13): `quest doctor`(엔진 도구 + content.toml [tools] 0~4장), `quest update`(첫 클론, requires_engine 먼저 확인 후 ff 합치기, 바뀐 장·새 미션 수만 표시, content_updated 기록), `quest/external.py`(외부 명령 경계). 이 PC의 doctor는 orb(맥 전용)만 ❌.
+- T0-9 진행(2026-11-13): 배지, 인자 3개 이하 정리(Tx·Help, ruff PLR0913), M0 전체 리뷰 10건 중 9건 반영, QA 기록.
 - T0-8 완료(2026-11-13): S1 = `sikomar00/sailingstone-quest`(공개) 커밋 `513ec58`(2026-10-12). 엔진 리포 밖에 받아 읽기만 하고, 시험이 S1의 DB·세이브·워크스페이스 쓰기를 임시 폴더로 돌린다(시험 뒤 S1 `git status` 변경 0). 52개 모범 답안이 새 엔진 채점으로 모두 통과, 보상 XP(시나리오 6개 × 52)·재구성 복습 XP·승급 시험 면제 XP가 S1과 모두 같다. pandas 3.0.3 호환 확인. 로컬은 환경 변수 `QUEST_S1_REPO`, CI는 고정 커밋을 `s1/`에 받는다. 남은 차이: S1 배지 규칙(원샷 5연속 등)은 새 엔진에 아직 없다.
 - T0-7 완료(2026-11-13): IA-6 `map`, IA-10 `goals`(content.toml [goals], 면제 불인정, 면제 미션 직접 통과 시 인정), IA-11 `stats`(`--sql` 읽기 전용·ATTACH 차단), IA-15 `status --json`, IA-17 `reset`. T0-6 리뷰 10건 중 8건, T0-7 리뷰 9건 중 7건 반영(나머지는 Spec·채팅에 이유 기록). 미룬 것: 인자 3개 이하 규칙 위반 함수 정리(별도 리팩터링, 사용자 결정 대기).
 - T0-6 완료(2026-11-13): `cli.py`를 `quest/commands/`로 나눔. 문항형 채점·확신도·설명 게이트(`core/answers.py`, `commands/ask.py`·`grade.py`), 카드 복습·잠금·연속 복습일·재구성 복습·지연 확인 퀴즈(`core/review.py`, `commands/study.py`), 승급 시험·돌아가기(`commands/modes.py`). 정해진 세부 규칙은 Spec에 "(T0-6)"으로 적었다.
