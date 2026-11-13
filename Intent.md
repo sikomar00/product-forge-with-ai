@@ -21,12 +21,13 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
-- 다음 작업: T0-4 첫 세로 조각(사용자 + AI, Windows). 시작 시각과 끝 시각을 재서 W1 예상일을 다시 계산한다.
+- 다음 작업: T0-5 보상·힌트·모범 답안(사용자 + AI, Windows).
+- T0-4 완료(2026-11-13): `core/progress.py`·`core/rewards.py`(계산만)·`core/ui.py`·`kinds/ops.py`·`cli.py`. 가짜 실습 미션이 홈 → 미션 → 채점 → 통과까지 돈다(IA-1·2·3·16, 종료 코드 0·1·2·3). 뒤 단계로 미룬 것: 설명 게이트·복습 잠금·연속 복습일·배지(T0-6), 나머지 이벤트(T0-7), `quest hint`(T0-5).
 - T0-3 완료(2026-11-13): `core/mission.py`(미션 스키마), `core/content.py`(불러오기·검증·호환), `tests/fixtures/fake_content/`(8가지 유형, 미션 9개, 지연 확인 퀴즈 10문항). 스키마 결정 3가지는 Spec "미션 스키마"에 적었다.
 - T0-2 완료(2026-11-13): `core/config.py`·`core/state.py`·`core/schema/v1_0.sql`. 엔진이 만든 DB에서 DDL 점검 67/67, 외래 키를 끄면 3개가 실패해 점검이 동작함을 확인. meta의 `engine_version` 갱신은 명령이 생기는 T0-4에서 한다. 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
 - T0-1 완료(2026-11-13, 브랜치 `engine/windows-setup`): CI가 ubuntu·macos에서 초록(ruff, pytest 1개, DDL 67/67). Python은 uv 관리 빌드 3.14.10으로 고정해 세 환경 모두 SQLite 3.53.1이다. 빌드 백엔드로 uv_build 0.13.6을 썼다(uv와 같은 버전).
 - 확인할 것: 맥 로컬에서 SQLite 3.53.1인지 확인(CI macos 러너에서는 3.53.1), pandas 3.0.3과 S1 코드의 호환(T0-8), OrbStack 미확인 3건(T1-4), GitHub 러너의 systemd(T1-6).
-- 실측 기록: T0-4를 마치면 채운다.
+- 실측 기록(T0-4): AI 구현 시간 약 5분(2026-11-13 12:09:58~12:14:46 UTC, 문서 읽기·코드·시험·직접 실행 포함). Plan 추정 5~8h는 사용자가 함께 짜는 시간이었다. 사용자 리뷰 시간은 재지 못했다. 남은 엔진 작업의 병목은 AI 구현이 아니라 사용자 리뷰·결정, S1 리포 준비(T0-8), 0장 콘텐츠(T1-7, 클라우드 세션)다. W1 예상일은 사용자 리뷰 시간을 한 번 재고 다시 계산한다.
 
 ## 완료한 작업
 - 하네스 1~7단계 문서(2026-11-09): GLOSSARY, ADR-0001~0009, IA v1.2, User Journey v1.1, PRD v1.2, ERD v1.0(DDL 점검 67/67 통과), Spec v1.0, Plan v1.0 모두 승인.
