@@ -5,11 +5,13 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from conftest import Quest
 
 from quest import external
 from quest.core.config import EnvError
+from quest.core.mission import ReviewRule
 from quest.labs import reviewbot
-from quest.labs.reviewbot import Finding, ReviewRule
+from quest.labs.reviewbot import Finding
 
 DIFF = """diff --git a/app/api.py b/app/api.py
 index 1111111..2222222 100644
@@ -86,3 +88,73 @@ def test_gh_failures_are_env_errors(monkeypatch: pytest.MonkeyPatch) -> None:
         reviewbot.pr_diff("me/opsdesk", 7)
     with pytest.raises(EnvError, match="리뷰 코멘트"):
         reviewbot.post_review("me/opsdesk", 7, [])
+
+
+# ───────────── 채점 직전 한 번(quest check) ─────────────
+
+DIFF_PRINT = """diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@ -1,1 +1,2 @@
+ x = 1
++print(x)
+"""
+
+
+@pytest.fixture
+def fake_gh(monkeypatch: pytest.MonkeyPatch) -> dict:
+    """gh 호출을 흉내 낸다. state['reviews']에 단 리뷰가 쌓인다."""
+    state = {"pr": "7", "reviews": [], "calls": []}
+
+    def run(args: list[str], cwd: Path | None = None,
+            timeout: int = 60) -> subprocess.CompletedProcess[str]:
+        state["calls"].append(args[:3])
+        out = ""
+        if args[:3] == ["gh", "repo", "view"]:
+            out = "me/opsdesk"
+        elif args[:3] == ["gh", "pr", "list"]:
+            out = state["pr"]
+        elif args[:3] == ["gh", "pr", "diff"]:
+            out = DIFF_PRINT
+        elif args[-2:-1] == ["--input"]:
+            state["reviews"].append(json.loads(Path(args[-1]).read_text(encoding="utf-8")))
+        elif args[:2] == ["gh", "api"]:
+            out = json.dumps([{"body": r["body"]} for r in state["reviews"]])
+        return subprocess.CompletedProcess(args, 0, out, "")
+
+    monkeypatch.setattr(external, "run", run)
+    return state
+
+
+def test_bot_reviews_once_before_check(game: Path, quest: Quest, answers: list[str],
+                                       fake_gh: dict) -> None:
+    code, out = quest("check", "1-1")
+    assert "🤖 리뷰봇이 PR #7에 코멘트 1개를 달았습니다" in out and code == 1  # 채점은 따로
+    assert fake_gh["reviews"][0]["comments"][0]["body"] == "🤖 리뷰봇: 디버그 print를 지우세요"
+    code, out = quest("check", "1-1")
+    assert "리뷰봇이" not in out and len(fake_gh["reviews"]) == 1  # 이미 단 PR은 건너뛴다
+
+
+def test_bot_does_nothing_without_open_pr(game: Path, quest: Quest, fake_gh: dict) -> None:
+    fake_gh["pr"] = ""
+    code, out = quest("check", "1-1")
+    assert "리뷰봇" not in out and fake_gh["reviews"] == []
+
+
+def test_bot_failure_does_not_block_grading(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(workdir: Path, rules: tuple) -> None:
+        raise EnvError("gh 명령을 찾지 못했습니다.")
+
+    monkeypatch.setattr(reviewbot, "run_once", broken)
+    (game / "fixed.txt").write_text("x", encoding="utf-8")
+    answers.append("2")  # 🚀 설명 게이트
+    code, out = quest("check", "1-1")
+    assert "⚠️ 리뷰봇을 돌리지 못했습니다" in out and code == 0 and "✅ 1." not in out  # 감사 미션은 개수만
+    assert "체크 1/1 통과" in out
+
+
+def test_mission_without_rules_never_calls_bot(game: Path, quest: Quest, fake_gh: dict) -> None:
+    quest("check", "0-1")
+    assert not any(c[:2] == ["gh", "pr"] for c in fake_gh["calls"])

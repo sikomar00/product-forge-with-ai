@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent))  # 같은 폴더의 _fake를 불�
 from _fake import HINTS, choice_item, file_exists, obf  # noqa: E402
 
 from quest.checks import fs  # noqa: E402
-from quest.core.mission import Chaos, Check, Ctx, Mission, Result  # noqa: E402
+from quest.core.mission import Chaos, Check, Ctx, Mission, Result, ReviewRule  # noqa: E402
 
 
 def _conf_ok(ctx: Ctx) -> Result:
@@ -31,6 +31,7 @@ MISSIONS = (
         key="m_f0000011", id="1-1", ch=1, kind="audit", title="가짜 감사", frm="가짜 팀장",
         xp=15, ai="delegate", msg="결함을 고치세요", hints=HINTS, solution=obf("fixed.txt"),
         checks=(file_exists("fixed.txt"),), explain=(choice_item(1),),
+        review=(ReviewRule("*.py", r"print\(", "디버그 print를 지우세요"),),
     ),
     Mission(
         key="m_f0000012", id="1-2", ch=1, kind="incident", title="가짜 장애", frm="가짜 팀장",
