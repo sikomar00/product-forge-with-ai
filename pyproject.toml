@@ -1,0 +1,38 @@
+[project]
+name = "quest"
+version = "0.1.0"
+description = "Product Forge With AI 터미널 학습 게임 엔진"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+quest = "quest.cli:main"
+
+# 개발 환경과 플레이 환경이 같아서(Plan) `quest selftest`도 이 그룹의 pytest를 쓴다.
+# pandas는 S1 회귀 테스트(T0-8) 전용이다.
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.2",
+    "pandas==3.0.3",
+]
+
+[build-system]
+requires = ["uv_build==0.13.6"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
