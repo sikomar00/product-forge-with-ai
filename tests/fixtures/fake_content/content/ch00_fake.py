@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent))  # 같은 폴더의 _fake를 불�
 
 from _fake import HINTS, card, choice_item, file_exists, obf  # noqa: E402
 
-from quest.core.mission import Item, Mission  # noqa: E402
+from quest.core.mission import Card, Item, Mission  # noqa: E402
 
 MISSIONS = (
     Mission(
@@ -25,6 +25,10 @@ MISSIONS = (
         key="m_f0000003", id="0-3", ch=0, kind="predict", title="가짜 예측", frm="가짜 팀장",
         xp=5, ai="solo", msg="결과를 예측하세요", hints=HINTS,
         items=(Item(1, "몇 줄이 나올까", "regex", obf(r"^3$"), ask_confidence=True),),
+        cards=(
+            Card("c_f0000003", "usage", "가짜 자가 채점 앞면", "가짜 뒷면", "self"),
+            Card("c_f0000004", "usage", "로그 보는 명령", "git log", "regex", (r"^git\s+log\b",)),
+        ),
     ),
     Mission(
         key="m_f0000004", id="0-4", ch=0, kind="drill", title="가짜 드릴", frm="가짜 팀장",
