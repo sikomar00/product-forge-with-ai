@@ -88,6 +88,16 @@ class Item:
 
 
 @dataclass(frozen=True)
+class ReviewRule:
+    """리뷰봇 지적 규칙(M1-07): path(글롭)에 맞는 파일에서 새로 더한 줄이 pattern(정규식)에
+    맞으면 message를 리뷰 코멘트로 단다."""
+
+    path: str
+    pattern: str
+    message: str
+
+
+@dataclass(frozen=True)
 class Chaos:
     """장애 시나리오(콘텐츠 구역, Spec "장애 주입").
 
@@ -131,3 +141,4 @@ class Mission:
     badge: str | None = None
     chaos: Chaos | None = None  # 장애 미션(incident)의 시나리오
     rca: tuple[Item, ...] = ()  # 장애 미션의 근본 원인 퀴즈. 복구한 뒤 묻는다
+    review: tuple[ReviewRule, ...] = ()  # 있으면 quest check 직전에 리뷰봇이 PR에 한 번 단다

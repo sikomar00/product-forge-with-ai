@@ -7,8 +7,10 @@ from quest.commands.ask import Answered, ask_items
 from quest.commands.common import ENV, FAIL, OK, USAGE, Game, line, make_ctx, target, versions
 from quest.commands.incident import snapshot_folder
 from quest.core import badges, progress, review, rewards, state, ui
+from quest.core.config import EnvError
 from quest.core.mission import CHECK_KINDS, CheckEnvError, Ctx, Mission, Result
 from quest.kinds import ops
+from quest.labs import reviewbot
 
 # 실패한 체크의 설명이 결함·원인 위치를 알려 주므로 숨긴다(IA 결정 4)
 HIDE_FAILED_DETAIL = ("audit", "incident")
@@ -160,6 +162,17 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     return saved
 
 
+def _run_reviewbot(game: Game, m: Mission) -> None:
+    """채점 직전에 리뷰봇을 한 번 돌린다. 리뷰봇이 실패해도 채점은 한다."""
+    try:
+        message = reviewbot.run_once(make_ctx(game.cfg).workdir, m.review)
+    except EnvError as exc:
+        print(ui.paint(f"⚠️ 리뷰봇을 돌리지 못했습니다: {exc}", "yellow"))
+        return
+    if message:
+        print(ui.paint(message, "bold"))
+
+
 def cmd_check(game: Game, rest: list[str]) -> int:
     m, code = target(game, rest)
     if m is None:
@@ -168,6 +181,8 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if m.kind == "incident" and not progress.incident_started(game.conn, m.key):
         print("장애가 아직 시작되지 않았습니다. quest mission으로 장애를 시작하세요.")
         return USAGE
+    if m.review and (row is None or row["status"] != "passed"):
+        _run_reviewbot(game, m)
     # 면제된 미션을 직접 다시 할 때는 설명 게이트도 다시 본다
     attempt = _grade(game, m, done=row is not None and row["status"] == "passed")
     if attempt is None:

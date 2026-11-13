@@ -3,8 +3,9 @@
 GitHub Actions가 아니라 게임이 로컬에서 `gh`로 단다. 지적 목록(ReviewRule)은 콘텐츠에 있어서
 공개 리포(opsdesk)에 올라가지 않는다. 코멘트는 '🤖 리뷰봇:'으로 시작하고 학습자 계정으로 달린다.
 
-shortcut: 언제 리뷰봇을 돌릴지(명령·시점)는 2장 콘텐츠를 만들 때 정한다. 체크는 읽기 전용이라
-체크 안에서 코멘트를 달 수는 없다(ADR-0004).
+2026-11-13 결정: 규칙(Mission.review)이 있는 미션의 quest check 직전에, 채점과 따로 돈다.
+체크는 읽기 전용이라 체크 안에서 달 수 없어서다(ADR-0004). 작업 폴더 리포의 가장 최근 열린
+PR에, 리뷰봇 리뷰가 아직 없을 때만 한 번 단다(따로 기록하지 않아도 몇 번 돌려도 같다).
 """
 
 import fnmatch
@@ -16,18 +17,10 @@ from pathlib import Path
 
 from quest import external
 from quest.core.config import EnvError
+from quest.core.mission import ReviewRule
 
 PREFIX = "🤖 리뷰봇: "
 _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-
-
-@dataclass(frozen=True)
-class ReviewRule:
-    """path(glob)에 맞는 파일에서, 새로 더한 줄이 pattern(정규식)에 맞으면 message를 단다."""
-
-    path: str
-    pattern: str
-    message: str
 
 
 @dataclass(frozen=True)
@@ -87,3 +80,37 @@ def post_review(repo: str, pr: int, found: list[Finding]) -> None:
                              f"repos/{repo}/pulls/{pr}/reviews", "--input", str(body)])
     if done.returncode != 0:
         raise EnvError("리뷰 코멘트를 달지 못했습니다. gh 로그인과 PR 상태를 확인하세요.")
+
+
+def _repo(workdir: Path) -> str | None:
+    """작업 폴더 리포의 GitHub '소유자/이름'. GitHub 리포가 아니면 None."""
+    done = external.run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"],
+                        cwd=workdir)
+    if done.returncode != 0:
+        return None
+    return done.stdout.strip() or None
+
+
+def _latest_open_pr(repo: str) -> int | None:
+    done = external.run(["gh", "pr", "list", "-R", repo, "--state", "open", "--limit", "1",
+                         "--json", "number", "-q", ".[0].number"])
+    text = done.stdout.strip()
+    return int(text) if done.returncode == 0 and text.isdecimal() else None
+
+
+def _already_reviewed(repo: str, pr: int) -> bool:
+    done = external.run(["gh", "api", f"repos/{repo}/pulls/{pr}/reviews"])
+    if done.returncode != 0:
+        raise EnvError(f"PR #{pr}의 리뷰를 읽지 못했습니다.")
+    return any(r.get("body", "").startswith(PREFIX) for r in json.loads(done.stdout or "[]"))
+
+
+def run_once(workdir: Path, rules: tuple[ReviewRule, ...]) -> str | None:
+    """열린 PR에 리뷰봇 리뷰가 아직 없으면 단다. 단 경우 화면 안내를, 아니면 None을 돌려준다."""
+    repo = _repo(workdir)
+    pr = _latest_open_pr(repo) if repo else None
+    if pr is None or _already_reviewed(repo, pr):
+        return None
+    found = findings(pr_diff(repo, pr), rules)
+    post_review(repo, pr, found)
+    return f"🤖 리뷰봇이 PR #{pr}에 코멘트 {len(found)}개를 달았습니다. GitHub에서 확인하세요."

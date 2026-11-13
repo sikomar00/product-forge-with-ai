@@ -197,6 +197,8 @@ def _mission_errors(m: Mission) -> list[str]:
         (m.kind in ITEM_KINDS and not m.items, f"{m.kind} 유형은 문항이 있어야 합니다"),
         (m.kind == "incident" and m.chaos is None, "장애 미션은 chaos 시나리오가 있어야 합니다"),
         (m.chaos is not None and not m.chaos.targets, "chaos.targets가 비었습니다"),
+        (not _patterns_compile(tuple(r.pattern for r in m.review)) and bool(m.review),
+         "리뷰봇 규칙의 정규식 오류"),
     ]
     errors = [message for broken, message in rules if broken]
     errors += _numbering("체크", [c.no for c in m.checks])
