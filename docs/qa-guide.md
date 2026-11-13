@@ -74,3 +74,34 @@
 | U4 | 문구가 이해되는지 | 위 흐름(미션 → 실패 → 힌트 → 통과 → 복습)을 한 번 따라 하기 | 다음에 칠 명령이 화면 맨 아래에 늘 보인다 | 어색한 문장은 그대로 복사해 알려 주기 | 미확인 |
 | U5 | 백업 되돌리기 | `quest reset`(초기화 입력) 뒤, 게임을 끈 상태에서 `backups/`의 파일을 `state.db` 자리에 복사하고 `quest` | 초기화 전 XP와 진행이 돌아온다 | 복사 전에 지금 `state.db`를 지우거나 이름을 바꿔야 한다 | 미확인 |
 | U6 | 맥 경로 | 환경 변수 없이 `uv run quest` 한 번 | `~/.config/quest/config.toml`과 `~/.local/share/quest/`가 생긴다 | 아직 실제 콘텐츠가 없어서 "콘텐츠가 없습니다 … quest update" 안내와 종료 코드 3이 정상이다 | 미확인 |
+
+## M1 (Windows 범위, 2026-11-13)
+
+맥이 필요한 것(OrbStack 랩, 랩 VM 대상 실제 주입, `ssh` 체크의 `orb` 명령 형식)은 아직 확인하지 않았다.
+
+### 터미널 QA (실제 `uv run quest`, 로컬 git 콘텐츠 리포)
+
+| ID | 명령 | 기대(종료 코드 · 화면) | 결과 |
+| --- | --- | --- | --- |
+| IA-18a | `quest update`(처음) | 0 · 바뀐 장 0·1장, 새 미션 9개 | Pass |
+| IA-18b | `quest update`(다시) | 0 · 이미 최신 | Pass |
+| IA-12 | `quest doctor` | 3 · orb 없음(맥 전용), 나머지 ✅ | Pass |
+| IA-19 | `quest selftest` | 0 · 통과 2 · 실패 0 | Pass |
+| IA-13a | `quest incident status`(없음) | 0 · 진행 중인 장애 없음 | Pass |
+| IA-13b | `quest check 1-2`(주입 전) | 2 · 먼저 장애를 시작하라 | Pass |
+| IA-13c | `quest mission 1-2` + y | 0 · 장애 시작 | Pass |
+| IA-13d | `quest incident status` | 0 · 1-2 · 0분째 | Pass |
+| IA-13e | `quest incident abort` | 0 · 되돌림, 원래 없던 파일은 지워짐 | Pass |
+| IA-13f·g | 다시 주입 → 복구 → `quest check 1-2` + 근본 원인 답 | 0 · 장애 복구, 통과 | Pass |
+| IA-11 | `quest stats` | 0 · MTTR 표시 | Pass |
+| IA-20 | `quest report 1-2` → n | 0 · 이슈를 열지 않음 | Pass |
+
+합계 13/13 통과(+ 파일 복원 확인 1건).
+
+### 맥에서 할 것
+
+| # | 확인할 것 | 방법 | 정상이면 보이는 것 | 주의점 | 결과 |
+| --- | --- | --- | --- | --- | --- |
+| U7 | OrbStack 미확인 3건(T1-4) | 맥에서 Claude와 함께 확인(머신 안 sshd, 머신 스냅샷, cloud-init 사용자) | 3건 모두 된다, 안 되면 Lima 전환을 묻는다 | Windows에서는 확인할 수 없다 | 미확인 |
+| U8 | `ssh` 체크의 명령 형식 | `orb -m pf-lab uname -a`가 머신 안에서 실행되는지 | 리눅스 커널 정보가 나온다 | 다르면 `quest/checks/ssh.py`의 `_command`만 고친다 | 미확인 |
+| U9 | 실제 GitHub로 `quest report` | 콘텐츠 리포를 만든 뒤 `quest report` → y | 비공개 콘텐츠 리포에 이슈가 열린다 | 이슈 본문에 체크 설명·힌트가 없는지 본다 | 미확인 |
