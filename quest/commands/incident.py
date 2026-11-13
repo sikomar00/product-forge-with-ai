@@ -13,7 +13,7 @@ from pathlib import Path
 from quest import chaos
 from quest.commands.ask import confirm
 from quest.commands.common import ENV, OK, USAGE, Game, make_ctx
-from quest.core import config, progress, state, ui
+from quest.core import config, incidents, state, ui
 from quest.core.mission import Mission
 
 
@@ -44,13 +44,13 @@ def _restore_and_close(game: Game, row: sqlite3.Row) -> None:
         raise config.EnvError(f"되돌리지 못했습니다({exc}). 스냅샷은 {folder}에 남아 있습니다."
                               " 다른 프로그램이 파일을 쓰고 있지 않은지 보고 다시 abort") from exc
     with state.transaction(game.conn) as tx:
-        progress.close_incident(tx, row, "aborted")
+        incidents.close_incident(tx, row, "aborted")
     shutil.rmtree(folder, ignore_errors=True)
 
 
 def offer_injection(game: Game, m: Mission) -> int:
     """장애 미션을 볼 때 부른다. 통과 전이고 진행 중인 장애가 없으면 묻고 주입한다."""
-    active = progress.incident_row(game.conn)
+    active = incidents.incident_row(game.conn)
     if active is not None:
         same = active["mission_key"] == m.key
         print("🚨 이 장애가 진행 중입니다. 복구한 뒤 quest check" if same else
@@ -68,7 +68,7 @@ def offer_injection(game: Game, m: Mission) -> int:
     ref = f"{m.id}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     chaos.snapshot(ctx, m.chaos, snapshot_folder(ref))
     with state.transaction(game.conn) as tx:
-        progress.open_incident(tx, m, ref)
+        incidents.open_incident(tx, m, ref)
     try:
         m.chaos.inject(ctx)
         injected = m.chaos.verify(ctx)
@@ -76,7 +76,7 @@ def offer_injection(game: Game, m: Mission) -> int:
         print(ui.paint(f"⚠️ 시나리오 오류: {type(exc).__name__}", "yellow"))
         injected = False
     if not injected:
-        _restore_and_close(game, progress.incident_row(game.conn))
+        _restore_and_close(game, incidents.incident_row(game.conn))
         print(ui.paint("⚠️ 장애를 걸지 못해 원래대로 되돌렸습니다. quest report로 알려 주세요.",
                        "yellow"))
         return ENV
@@ -85,7 +85,7 @@ def offer_injection(game: Game, m: Mission) -> int:
 
 
 def _status(game: Game) -> int:
-    row = progress.incident_row(game.conn)
+    row = incidents.incident_row(game.conn)
     if row is None:
         print("진행 중인 장애가 없습니다.")
         return OK
@@ -98,7 +98,7 @@ def _status(game: Game) -> int:
 
 
 def _abort(game: Game) -> int:
-    row = progress.incident_row(game.conn)
+    row = incidents.incident_row(game.conn)
     if row is None:
         print("진행 중인 장애가 없습니다.")
         return OK

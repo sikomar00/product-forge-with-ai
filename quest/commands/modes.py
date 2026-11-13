@@ -1,13 +1,13 @@
 """IA-7 승급 시험, IA-8 돌아가기(M0-14, Spec "승급 시험")."""
 
 from quest.commands.common import OK, USAGE, Game, line, lock_state
-from quest.core import progress, state, ui
+from quest.core import incidents, progress, state, ui
 
 NO_EXAM_CHAPTERS = (0, 17)  # 0장은 환경을 만들고, 17장은 처음부터 끝까지 해 보는 것이 목적이다
 
 
 def _exam_refusal(game: Game, boss_status: str | None) -> str | None:
-    if progress.active_incident(game.conn):  # 면제가 진행 중인 장애를 남겨 두지 않게
+    if incidents.active_incident(game.conn):  # 면제가 진행 중인 장애를 남겨 두지 않게
         return "진행 중인 장애가 있습니다. 먼저 복구하거나 quest incident abort"
     if boss_status in progress.DONE:
         return "이 장의 보스는 이미 통과했습니다."

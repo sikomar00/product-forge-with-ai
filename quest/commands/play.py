@@ -4,7 +4,7 @@ from datetime import datetime
 
 from quest.commands.common import OK, Game, line, lock_view, mode_target, target
 from quest.commands.incident import offer_injection
-from quest.core import progress, review, state, ui
+from quest.core import incidents, progress, review, state, ui
 from quest.core.mission import CHECK_KINDS, Mission
 
 # ───────────── IA-1 홈 ─────────────
@@ -15,7 +15,7 @@ def cmd_home(game: Game, rest: list[str]) -> int:
     status = progress.statuses(conn)
     main_line = progress.current(game.missions, status)  # 등급·장 진행은 실제 진행 기준
     m = mode_target(game) or main_line  # 화면의 현재 미션은 시험·복습 대상일 수 있다
-    if progress.active_incident(conn):
+    if incidents.active_incident(conn):
         print(ui.paint("🚨 진행 중인 장애가 있습니다. quest incident status", "red"))
     ch = main_line.ch if main_line else game.missions[-1].ch
     is_locked, due, threshold = lock_view(game)

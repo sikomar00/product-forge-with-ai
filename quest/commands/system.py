@@ -7,7 +7,7 @@ from pathlib import Path
 
 from quest.commands.ask import read
 from quest.commands.common import OK, USAGE, Game, lock_view, mode_target
-from quest.core import config, progress, state
+from quest.core import config, incidents, progress, state
 from quest.core.mission import Mission
 
 STATUS_SCHEMA = 1
@@ -42,7 +42,7 @@ def _status(game: Game) -> dict:
         "mission": {"key": m.key, "id": m.id, "kind": m.kind, "ai": m.ai} if m else None,
         "mode": progress.mode(game.conn),
         "remaining_checks": {"numbers": numbers, "count": len(numbers)},
-        "incident_active": progress.active_incident(game.conn),
+        "incident_active": incidents.active_incident(game.conn),
         "review_lock": lock_view(game)[0],
     }
 
@@ -71,7 +71,7 @@ def _new_backup_path() -> Path:
 
 
 def cmd_reset(game: Game, rest: list[str]) -> int:
-    if progress.active_incident(game.conn):  # 지우면 abort가 되돌릴 스냅샷 기록을 잃는다(ADR-0007)
+    if incidents.active_incident(game.conn):  # 지우면 abort가 되돌릴 스냅샷 기록을 잃는다(ADR-0007)
         print("진행 중인 장애가 있어 초기화하지 않습니다. 먼저 quest incident abort")
         return USAGE
     print("진행 기록을 모두 지우고 처음부터 시작합니다. 지금 기록은 백업 파일로 남깁니다.")

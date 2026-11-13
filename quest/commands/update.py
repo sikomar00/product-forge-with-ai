@@ -9,7 +9,7 @@ from pathlib import Path
 
 from quest import external
 from quest.commands.common import OK
-from quest.core import config, content, progress, state
+from quest.core import config, content, incidents, progress, state
 
 CHAPTER_FILE = re.compile(r"content/ch(\d{2})_\w+\.py")
 _AUTH_HINTS = ("authentication failed", "could not read username", "permission denied",
@@ -49,7 +49,7 @@ def _incident_active() -> bool:
         return False
     conn = state.connect()
     try:
-        return progress.active_incident(conn)
+        return incidents.active_incident(conn)
     finally:
         conn.close()
 

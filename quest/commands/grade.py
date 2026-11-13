@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from quest.commands.ask import Answered, ask_items
 from quest.commands.common import ENV, FAIL, OK, USAGE, Game, line, make_ctx, target, versions
 from quest.commands.incident import snapshot_folder
-from quest.core import badges, progress, review, rewards, state, ui
+from quest.core import badges, incidents, progress, review, rewards, state, ui
 from quest.core.config import EnvError
 from quest.core.mission import CHECK_KINDS, CheckEnvError, Ctx, Mission, Result
 from quest.kinds import ops
@@ -140,7 +140,7 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     """시도를 한 트랜잭션으로 기록한다."""
     saved = Saved()
     rebuilding = progress.is_rebuild_target(game.conn, m.key)
-    incident = progress.incident_row(game.conn)
+    incident = incidents.incident_row(game.conn)
     # 복구 체크를 모두 통과하면 복구다. 근본 원인 퀴즈는 따로 센다.
     recovered = (incident is not None and incident["mission_key"] == m.key
                  and bool(attempt.checks) and all(attempt.checks))
@@ -148,10 +148,10 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
         progress.start(tx, m)
         progress.record_attempt(tx, m, attempt)
         if recovered:
-            progress.close_incident(tx, incident, "recovered")
+            incidents.close_incident(tx, incident, "recovered")
             saved.recovered_ref = incident["snapshot_ref"]
         if attempt.rca_correct is not None:
-            progress.record_rca(tx, m.key, attempt.rca_correct)
+            incidents.record_rca(tx, m.key, attempt.rca_correct)
         if attempt.passed and progress.progress_row(tx.conn, m.key)["status"] == "in_progress":
             saved = replace(_pass_new(tx, game, m), recovered_ref=saved.recovered_ref)
             saved.badges = badges.award(tx, m)
@@ -178,7 +178,7 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if m is None:
         return code
     row = progress.progress_row(game.conn, m.key)
-    if m.kind == "incident" and not progress.incident_started(game.conn, m.key):
+    if m.kind == "incident" and not incidents.incident_started(game.conn, m.key):
         print("장애가 아직 시작되지 않았습니다. quest mission으로 장애를 시작하세요.")
         return USAGE
     if m.review and (row is None or row["status"] != "passed"):

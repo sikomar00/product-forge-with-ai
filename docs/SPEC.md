@@ -67,6 +67,7 @@ quest/
 │   ├── schema/v1_0.sql   # docs/ddl/v1.0.sql과 같은 내용(테스트로 비교)
 │   ├── content.py    # 콘텐츠 불러오기·검증·호환 확인
 │   ├── progress.py   # 현재 미션, 장 시작·완료, 잠금
+│   ├── incidents.py  # 장애 기록(T1-3, progress.py에서 나눔)
 │   ├── rewards.py    # 보상(S1과 같은 계산)
 │   ├── review.py     # Leitner, 재구성 복습, 지연 확인 퀴즈
 │   ├── spoiler.py    # 난독화와 표시 규칙
