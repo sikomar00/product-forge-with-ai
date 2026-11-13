@@ -19,7 +19,7 @@ MISSIONS = (
     Mission(
         key="m_f0000002", id="0-2", ch=0, kind="quiz", title="가짜 퀴즈", frm="가짜 팀장",
         xp=5, ai="solo", msg="고르세요", hints=HINTS,
-        items=(Item(1, "가짜 문항", "choice", obf("A"), ("A", "B"), ask_confidence=True),),
+        items=(Item(1, "가짜 문항", "choice", obf("1"), ("A", "B"), ask_confidence=True),),
     ),
     Mission(
         key="m_f0000003", id="0-3", ch=0, kind="predict", title="가짜 예측", frm="가짜 팀장",
@@ -35,7 +35,7 @@ MISSIONS = (
         key="m_f0000005", id="0-5", ch=0, kind="decision", title="가짜 결정", frm="가짜 팀장",
         xp=10, ai="solo", msg="도구를 고르고 근거를 체크하세요", hints=HINTS,
         items=(
-            Item(1, "도구", "choice", obf("A"), ("A", "B")),
+            Item(1, "도구", "choice", obf("1"), ("A", "B")),
             Item(2, "근거", "multi", obf("1,3"), ("비용", "유행", "운영 부담")),
             Item(3, "순서", "order", obf("2,1,3"), ("배포", "빌드", "확인")),
         ),

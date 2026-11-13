@@ -64,7 +64,7 @@ def test_three_hints_then_solution_guidance(game: Path, quest: Quest, answers: l
 
 
 def test_hint_lowers_reward(game: Path, quest: Quest, answers: list[str]) -> None:
-    answers.append("y")
+    answers.extend(["y", "2", "2"])  # 힌트 확인, 설명 게이트 두 문항
     quest("hint")
     (game / "hello.txt").write_text("hi", encoding="utf-8")
     code, out = quest("check")
@@ -78,6 +78,7 @@ def test_solution_then_pass_gives_20_percent(game: Path, quest: Quest, answers: 
     code, out = quest("solution")  # 이미 봤으면 다시 묻지 않는다
     assert "볼까요" not in out and "touch hello.txt" in out
     (game / "hello.txt").write_text("hi", encoding="utf-8")
+    answers.extend(["2", "2"])
     code, out = quest("check")
     assert code == 0 and "+2 XP" in out and "원샷" not in out
     assert _row(game, "how", "solution_seen", "xp_awarded") == ("solution", 1, 2)
@@ -86,6 +87,7 @@ def test_solution_then_pass_gives_20_percent(game: Path, quest: Quest, answers: 
 
 def test_finished_mission_solution_is_free(game: Path, quest: Quest, answers: list[str]) -> None:
     (game / "hello.txt").write_text("hi", encoding="utf-8")
+    answers.extend(["2", "2"])
     quest("check")
     code, out = quest("solution", "0-1")
     assert "볼까요" not in out and "touch hello.txt" in out

@@ -10,7 +10,7 @@ import pytest
 from conftest import Quest
 
 
-def test_ops_mission_end_to_end(game: Path, quest: Quest) -> None:
+def test_ops_mission_end_to_end(game: Path, quest: Quest, answers: list[str]) -> None:
     code, out = quest()
     assert code == 0
     assert "견습 · 0 XP" in out and "0장 작업장" in out and "현재 미션: 0-1 🎫 가짜 실습" in out
@@ -24,6 +24,7 @@ def test_ops_mission_end_to_end(game: Path, quest: Quest) -> None:
     assert "↳ hello.txt 파일을 만드세요" in out
 
     (game / "hello.txt").write_text("hi", encoding="utf-8")
+    answers.extend(["2", "2"])  # 🤝 설명 게이트
     code, out = quest("check")
     assert code == 0 and "✅ 1." in out and "+10 XP" in out and "원샷" not in out
     assert "카드 1장" in out and "다음 미션: 0-2" in out
@@ -49,8 +50,9 @@ def test_ops_mission_end_to_end(game: Path, quest: Quest) -> None:
     )
 
 
-def test_one_shot_pass_gets_bonus(game: Path, quest: Quest) -> None:
+def test_one_shot_pass_gets_bonus(game: Path, quest: Quest, answers: list[str]) -> None:
     (game / "hello.txt").write_text("hi", encoding="utf-8")
+    answers.extend(["2", "2"])
     code, out = quest("check")
     assert code == 0 and "+12 XP (원샷 보너스)" in out
 

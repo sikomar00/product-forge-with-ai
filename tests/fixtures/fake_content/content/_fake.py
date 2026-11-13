@@ -16,7 +16,7 @@ def file_exists(name: str) -> Check:
     return Check(1, f"{name} 파일이 있다", fn, f"{name} 파일을 만드세요")
 
 
-def choice_item(no: int, answer: str = "B") -> Item:
+def choice_item(no: int, answer: str = "2") -> Item:
     return Item(no, f"가짜 문항 {no}", "choice", obf(answer), ("A", "B", "C"))
 
 
