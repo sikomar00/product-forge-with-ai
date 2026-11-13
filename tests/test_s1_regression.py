@@ -82,7 +82,7 @@ def test_mission_xp_matches_s1(s1, capsys: pytest.CaptureFixture[str]) -> None:
     for m in engine.MISSIONS:
         for hints, fails, seen in SCENARIOS:
             cur = {"mode": "normal", "hints": hints, "fails": fails, "solution_seen": seen}
-            ours = rewards.mission_xp(m["xp"], hints, fails, seen)
+            ours = rewards.mission_xp(m["xp"], rewards.Help(hints, fails, seen))
             if ours != _s1_gain(engine, m, cur, capsys):
                 differ.append((m["id"], hints, fails, seen))
     assert differ == []
@@ -104,9 +104,9 @@ def test_exam_exemption_matches_s1(s1, tmp_path: Path, capsys: pytest.CaptureFix
     for exam in exams:
         s1_total = _s1_gain(engine, exam, {"mode": "exam"}, capsys) - round(exam["xp"] * 1.2)
         conn = state.connect(tmp_path / f"{exam['id']}.db")
-        with state.transaction(conn):
+        with state.transaction(conn) as tx:
             boss = missions[exam["id"]]
-            progress.start(conn, boss, state.now_utc())
-            ours = progress.exempt_rest_of_chapter(conn, adapted, boss, state.now_utc())
+            progress.start(tx, boss)
+            ours = progress.exempt_rest_of_chapter(tx, adapted, boss)
         conn.close()
         assert sum(xp for _, xp in ours) == s1_total, exam["id"]

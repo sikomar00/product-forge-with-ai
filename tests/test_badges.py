@@ -5,7 +5,12 @@ from pathlib import Path
 
 from conftest import Quest
 
-from quest.core import badges
+from quest.core import badges, state
+
+
+def _award(conn: sqlite3.Connection, at: str) -> list[str]:
+    with state.transaction(conn, at) as tx:
+        return badges.award(tx, None)
 
 
 def _db(game: Path) -> sqlite3.Connection:
@@ -43,12 +48,12 @@ def test_oneshot_run_must_be_five_in_a_row(game: Path, quest: Quest) -> None:
     quest()
     conn = _db(game)
     _passed(conn, [(f"m_aaaaaa0{n}", 0) for n in range(4)])
-    assert "oneshot5" not in badges.award(conn, None, "2026-02-01T00:00:00Z")
+    assert "oneshot5" not in _award(conn, "2026-02-01T00:00:00Z")
     _passed(conn, [("m_bbbbbb01", 1)])  # 실패가 끼면 끊긴다
     _passed(conn, [(f"m_cccccc0{n}", 0) for n in range(4)])
-    assert "oneshot5" not in badges.award(conn, None, "2026-02-01T00:00:00Z")
+    assert "oneshot5" not in _award(conn, "2026-02-01T00:00:00Z")
     _passed(conn, [("m_dddddd01", 0)])
-    assert "oneshot5" in badges.award(conn, None, "2026-02-01T00:00:00Z")
+    assert "oneshot5" in _award(conn, "2026-02-01T00:00:00Z")
 
 
 def test_steady_needs_fourteen_review_days(game: Path, quest: Quest) -> None:
@@ -58,6 +63,6 @@ def test_steady_needs_fourteen_review_days(game: Path, quest: Quest) -> None:
         "INSERT INTO events (at, kind) VALUES (?, 'review_finished')",
         [(f"2026-03-{day:02d}T01:00:00Z",) for day in range(1, 14)],
     )
-    assert "steady14" not in badges.award(conn, None, "2026-03-13T02:00:00Z")
+    assert "steady14" not in _award(conn, "2026-03-13T02:00:00Z")
     conn.execute("INSERT INTO events (at, kind) VALUES ('2026-03-14T01:00:00Z', 'review_finished')")
-    assert "steady14" in badges.award(conn, None, "2026-03-14T02:00:00Z")
+    assert "steady14" in _award(conn, "2026-03-14T02:00:00Z")

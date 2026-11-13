@@ -2,7 +2,7 @@
 
 import pytest
 
-from quest.core.rewards import mission_xp
+from quest.core.rewards import Help, mission_xp
 
 
 @pytest.mark.parametrize(
@@ -19,4 +19,4 @@ from quest.core.rewards import mission_xp
     ],
 )
 def test_mission_xp(xp: int, hints: int, fails: int, solution: bool, expected: int) -> None:
-    assert mission_xp(xp, hints, fails, solution) == expected
+    assert mission_xp(xp, Help(hints, fails, solution)) == expected
