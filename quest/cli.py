@@ -11,6 +11,8 @@ from quest.commands.grade import cmd_check
 from quest.commands.modes import cmd_back, cmd_exam
 from quest.commands.play import cmd_home, cmd_mission
 from quest.commands.records import cmd_goals, cmd_map, cmd_stats
+from quest.commands.report import cmd_report
+from quest.commands.selftest import cmd_selftest
 from quest.commands.study import cmd_review
 from quest.commands.system import cmd_reset, cmd_status
 from quest.commands.update import cmd_update
@@ -56,13 +58,15 @@ COMMANDS = {
     "reset": Command(cmd_reset, "", "진행 초기화(백업을 남긴다)"),
     "doctor": Command(cmd_doctor, "", "장비 점검: 도구 설치와 허용 버전", needs_game=False),
     "update": Command(cmd_update, "", "콘텐츠 받기·갱신", needs_game=False),
+    "selftest": Command(cmd_selftest, "", "받은 콘텐츠의 테스트를 이 엔진으로", needs_game=False),
+    "report": Command(cmd_report, "[ID]", "미션 오판 신고(콘텐츠 리포 이슈)", max_args=1),
     "help": Command(cmd_help, "", "명령 목록", needs_game=False),
 }
 
 
 def _utf8_console() -> None:
     if sys.platform == "win32":  # Windows 기본 코드 페이지로는 이모지·한글이 깨진다
-        for stream in (sys.stdin, sys.stdout, sys.stderr):  # 파이프로 넣은 한글 답도 UTF-8로 읽는다
+        for stream in (sys.stdin, sys.stdout, sys.stderr):  # 파이프로 넣은 한글 답도 UTF-8로
             if hasattr(stream, "reconfigure"):  # 시험 중 pytest가 바꿔 끼운 stdin에는 없다
                 stream.reconfigure(encoding="utf-8")
 

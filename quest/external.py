@@ -14,7 +14,8 @@ TIMEOUT_SEC = 60
 _VERSION = re.compile(r"\d+(?:\.\d+)+")
 
 
-def run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+def run(args: list[str], cwd: Path | None = None,
+        timeout: int = TIMEOUT_SEC) -> subprocess.CompletedProcess[str]:
     """명령을 실행하고 결과를 돌려준다. 프로그램이 없거나 시간이 넘으면 EnvError."""
     exe = shutil.which(args[0])
     if exe is None:
@@ -22,10 +23,10 @@ def run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess
     try:
         return subprocess.run(
             [exe, *args[1:]], cwd=cwd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=TIMEOUT_SEC, check=False,
+            encoding="utf-8", errors="replace", timeout=timeout, check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise EnvError(f"{args[0]} 명령이 {TIMEOUT_SEC}초 안에 끝나지 않았습니다.") from exc
+        raise EnvError(f"{args[0]} 명령이 {timeout}초 안에 끝나지 않았습니다.") from exc
 
 
 def version_of(cmd: list[str]) -> str | None:
