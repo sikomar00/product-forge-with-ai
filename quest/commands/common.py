@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 
+from quest.checks.github import GhLive
 from quest.core import config, content, progress, review, state, ui
 from quest.core.mission import Ctx, Item, Mission
 
@@ -52,7 +53,7 @@ def make_ctx(cfg: dict) -> Ctx:
         lab = cfg["lab"]["vm_name"]
     except KeyError as exc:
         raise config.EnvError(f"설정 파일에 {exc} 항목이 없습니다.") from exc
-    return Ctx(workdir=workdir, config=cfg, lab=lab, gh=None, now=datetime.now(UTC))
+    return Ctx(workdir=workdir, config=cfg, lab=lab, gh=GhLive(), now=datetime.now(UTC))
 
 
 def target(game: Game, rest: list[str]) -> tuple[Mission | None, int]:
