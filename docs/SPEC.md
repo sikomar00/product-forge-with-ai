@@ -271,7 +271,7 @@ design.md 8.3절 스키마에서 바꾸고 더하는 것:
 ### 리뷰봇 (M1-07)
 
 - 2-4의 리뷰봇은 GitHub Actions가 아니라 게임이 로컬에서 `gh api`로 학습자 PR에 리뷰 코멘트를 단다. 지적 목록은 콘텐츠에 있으므로 공개 리포인 `opsdesk`에 올라가지 않는다. 코멘트는 `🤖 리뷰봇:`으로 시작하고 학습자 계정으로 달린다.
-- (T1-5 구현, `quest/labs/reviewbot.py`) 지적 규칙은 `ReviewRule(path 글롭, pattern 정규식, message)`이다. PR diff에서 새로 더한 줄만 보고, 규칙마다 파일당 첫 줄에만 단다. 리뷰 하나(`event=COMMENT`)에 줄 코멘트를 모아 `gh api POST repos/<리포>/pulls/<번호>/reviews`로 단다. **리뷰봇을 언제 돌릴지(명령·시점)는 아직 정하지 않았다**: 체크는 읽기 전용이라 체크 안에서는 달 수 없다(ADR-0004).
+- (T1-5 구현, `quest/labs/reviewbot.py`) 지적 규칙은 `ReviewRule(path 글롭, pattern 정규식, message)`이다. PR diff에서 새로 더한 줄만 보고, 규칙마다 파일당 첫 줄에만 단다. 리뷰 하나(`event=COMMENT`)에 줄 코멘트를 모아 `gh api POST repos/<리포>/pulls/<번호>/reviews`로 단다. (2026-11-13 결정) 규칙(`Mission.review`)이 있는 미션의 `quest check` 직전에 채점과 따로 돈다. 작업 폴더 리포의 가장 최근 열린 PR에 리뷰봇 리뷰가 아직 없을 때만 한 번 단다(기록 없이 PR의 리뷰로 판단). 리뷰봇이 실패해도 채점은 한다. 체크는 읽기 전용이라 체크 안에서는 달지 않는다(ADR-0004).
 
 ### 콘텐츠 리포 구조와 CI (ADR-0009, M1-08)
 
