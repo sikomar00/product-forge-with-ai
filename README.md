@@ -6,7 +6,7 @@
 - 요구사항(PRD)·데이터 구조(ERD)·명세(Spec): [docs/PRD.md](docs/PRD.md), [docs/ERD.md](docs/ERD.md), [docs/SPEC.md](docs/SPEC.md)
 - 용어집·결정 기록·정보 구조·사용자 여정: [docs/GLOSSARY.md](docs/GLOSSARY.md), [docs/adr/](docs/adr/), [docs/IA.md](docs/IA.md), [docs/USER-JOURNEY.md](docs/USER-JOURNEY.md)
 - 구성: 18장(기반 도구 → 기획 → 설계 → 백엔드 → 비동기 → 프론트엔드 → 테스트 → 컨테이너 → 배포 → CI/CD → 쿠버네티스 비교 → 클라우드·IaC → 운영 → 제품 안의 AI → 분석·개선 → 최종)
-- 상태: 엔진 M0 게이트 승인(2026-11-13), M1 중 Windows에서 할 수 있는 작업 완료(2026-11-14). 다음은 맥에서 OrbStack 랩과 사용자 QA, 그다음 콘텐츠. 작업 순서는 [docs/PLAN.md](docs/PLAN.md), 현재 작업은 [Intent.md](Intent.md)
+- 상태: 엔진 M0 게이트 승인(2026-11-13), M1 중 Windows에서 할 수 있는 작업 완료(2026-11-14), 엔진 태그 `v0.1.0`. 콘텐츠는 비공개 리포에서 0장 코어까지 완료(2026-11-14). 다음은 맥에서 설치·0장 시작(W1)과 OrbStack 랩·사용자 QA. 작업 순서는 [docs/PLAN.md](docs/PLAN.md), 현재 작업은 [Intent.md](Intent.md)
 - 맥 준비 점검: `bash scripts/check-mac.sh` — 이미 설치된 것과 빠진 것, 설치 명령을 보여 준다(읽기만 한다)
 
 ## 맥에서 시작하기
