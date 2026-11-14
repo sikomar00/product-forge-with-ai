@@ -112,6 +112,7 @@ def test_inject_then_abort_restores(game: Path, quest: Quest, answers: list[str]
     assert code == 0 and "되돌렸습니다" in out
     assert (game / "service.conf").read_text(encoding="utf-8") == "mode=ok\n"
     assert _incidents(game) == [("aborted", 0, 1, None)]
+    assert not (game / "leftover.pid").exists()
     assert not list((game.parent / "home" / "snapshots").iterdir())  # 스냅샷은 지운다
 
 
@@ -123,6 +124,7 @@ def test_recover_with_rca_records_mttr(game: Path, quest: Quest, answers: list[s
     code, out = quest("check", "1-2")
     assert code == 1 and "장애를 복구했습니다" in out and "아직 통과가 아닙니다" in out
     assert _incidents(game) == [("recovered", 1, 0, 0)]
+    assert not (game / "leftover.pid").exists()  # 복구 뒤에도 시나리오 정리를 부른다
     answers.append("2")
     code, out = quest("check", "1-2")  # 복구는 끝났고 근본 원인 퀴즈만 다시 본다
     assert code == 0 and "+20 XP" in out and "원샷" not in out  # 퀴즈 실패 1회라 보너스 없음
@@ -270,6 +272,33 @@ def test_restore_unlocks_000_folder_and_leaves_link_targets_alone(tmp_path: Path
     chaos.restore(tmp_path / "snap")
     assert not locked.exists() and not (work / "link").exists()
     assert oct(outside.stat().st_mode & 0o777) == oct(0o644)  # 링크가 가리킨 파일은 그대로
+
+
+def test_failed_cleanup_after_recovery_only_warns(
+    game: Path, quest: Quest, answers: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answers.append("y")
+    quest("mission", "1-2")
+    (game / "service.conf").write_text("mode=ok\n", encoding="utf-8")
+    from quest.commands import grade
+
+    real = grade.target
+
+    def failing_cleanup(g: object, rest: list[str]) -> tuple:
+        m, code = real(g, rest)
+
+        def boom(ctx: object) -> None:
+            raise TimeoutError("orb")
+
+        object.__setattr__(m.chaos, "cleanup", boom)
+        return m, code
+
+    monkeypatch.setattr(grade, "target", failing_cleanup)
+    answers.append("1")
+    code, out = quest("check", "1-2")
+    assert "장애를 복구했습니다" in out
+    assert "⚠️ 장애 시나리오 정리가 실패했습니다(TimeoutError)" in out
+    assert _incidents(game) == [("recovered", 1, 0, 0)]  # 복구 기록은 그대로
 
 
 def test_failed_cleanup_keeps_incident_open(

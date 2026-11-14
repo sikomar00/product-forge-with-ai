@@ -17,14 +17,16 @@ def _conf_ok(ctx: Ctx) -> Result:
 
 def _break(ctx: Ctx) -> None:
     (ctx.workdir / "service.conf").write_text("mode=broken\n", encoding="utf-8")
+    (ctx.workdir / "leftover.pid").write_text("1", encoding="utf-8")  # 띄운 프로세스 흉내
 
 
 def _is_broken(ctx: Ctx) -> bool:
     return fs.contains(ctx, "service.conf", "broken").ok
 
 
-def _nothing_to_clean(ctx: Ctx) -> None:
-    """파일은 엔진이 스냅샷으로 되돌린다. 시나리오가 따로 남긴 것이 없다."""
+def _stop_leftover(ctx: Ctx) -> None:
+    """스냅샷 대상 밖에 남긴 것을 치운다. 복구·중단 어느 쪽에서 불러도, 여러 번 불러도 된다."""
+    (ctx.workdir / "leftover.pid").unlink(missing_ok=True)
 
 MISSIONS = (
     Mission(
@@ -37,7 +39,7 @@ MISSIONS = (
         key="m_f0000012", id="1-2", ch=1, kind="incident", title="가짜 장애", frm="가짜 팀장",
         xp=20, ai="solo", msg="복구하세요", hints=HINTS,
         checks=(Check(1, "service.conf가 정상", _conf_ok, "설정 파일을 보세요"),),
-        chaos=Chaos(("service.conf",), _break, _is_broken, _nothing_to_clean),
+        chaos=Chaos(("service.conf",), _break, _is_broken, _stop_leftover),
         rca=(choice_item(1),),
     ),
     Mission(
