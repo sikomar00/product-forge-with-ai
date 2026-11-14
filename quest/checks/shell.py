@@ -36,7 +36,9 @@ ARG_RULES = {
     "date": lambda rest: all(a.startswith("+") or a in ("-u", "--utc") for a in rest),
     "hostname": lambda rest: all(a in ("-f", "-s", "-d", "-i", "-I", "--fqdn") for a in rest),
 }
-VERSION_FLAGS = ("--version", "-V", "version")
+VERSION_FLAGS = ("--version", "-V")
+# 'version'을 하위 명령으로 쓰는 도구만. 'rm version'처럼 파일 이름으로 읽히면 안 된다
+VERSION_SUBCOMMAND = ("go", "gh", "docker", "kubectl", "k3d", "helm", "orb", "terraform")
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,8 @@ def _forbidden(command: str, arg: str) -> bool:
 def is_read_only(args: list[str]) -> bool:
     if not args:
         return False
-    if len(args) == 2 and args[1] in VERSION_FLAGS:
+    if len(args) == 2 and (args[1] in VERSION_FLAGS
+                           or (args[1] == "version" and args[0] in VERSION_SUBCOMMAND)):
         return True
     if args[0] in ARG_RULES:
         return ARG_RULES[args[0]](args[1:])
@@ -111,7 +114,11 @@ def succeeds(ctx: Ctx, args: list[str]) -> Result:
 
 
 def output_equals(ctx: Ctx, args: list[str], expected: str) -> Result:
-    """형식을 지정한 출력(예: stat -c %a, date +%Y)이 expected와 같은지."""
+    """형식을 지정한 출력(예: date +%Y)이 expected와 같은지.
+
+    맥 호스트는 BSD 명령이라 GNU 옵션(stat -c, ip -j 등)이 없다. 리눅스 전용 명령은 checks.ssh로
+    랩 머신에서 돌린다(맥에서 stat 형식은 -f).
+    """
     return judge(run(ctx, args), expected)
 
 

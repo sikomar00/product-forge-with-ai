@@ -80,7 +80,8 @@ def test_shell_output_equals_and_json(work: Path, monkeypatch: pytest.MonkeyPatc
 
 @pytest.mark.parametrize("args", [["date", "+%s"], ["date", "-u", "+%Y"], ["hostname"],
                                   ["hostname", "-f"], ["journalctl", "-u", "nginx", "-n", "5"],
-                                  ["ss", "-tlnp"], ["systemctl", "is-active", "sshd"]])
+                                  ["ss", "-tlnp"], ["systemctl", "is-active", "sshd"],
+                                  ["git", "--version"], ["go", "version"]])
 def test_allowed_read_only_forms(args: list[str]) -> None:
     assert shell.is_read_only(args)
 
@@ -88,7 +89,8 @@ def test_allowed_read_only_forms(args: list[str]) -> None:
 @pytest.mark.parametrize("args", [["date", "-s", "2000-01-01"], ["hostname", "newname"],
                                   ["ip", "addr", "add", "1.2.3.4/24", "dev", "eth0"],
                                   ["ip", "-j", "route", "del", "default"],
-                                  ["journalctl", "--vacuum-size=1K"], ["ss", "-K", "dst", "x"]])
+                                  ["journalctl", "--vacuum-size=1K"], ["ss", "-K", "dst", "x"],
+                                  ["rm", "version"], ["mkdir", "version"]])
 def test_state_changing_forms_are_refused(args: list[str]) -> None:
     assert not shell.is_read_only(args)
 

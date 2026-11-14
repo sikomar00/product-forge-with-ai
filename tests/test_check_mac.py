@@ -121,3 +121,30 @@ def test_without_xcode_tools_git_stub_is_not_run(mac: dict, tmp_path: Path) -> N
     assert "❌ Xcode Command Line Tools 없음" in done.stdout
     # 시험 환경의 git은 /usr/bin/git이 아니라서 그대로 점검된다(가짜로 /usr/bin을 바꿀 수 없다)
     assert "✅ git" in done.stdout or "git은 Xcode" in done.stdout
+
+
+def test_content_follows_config_path(mac: dict) -> None:
+    """엔진처럼 설정의 [content] path를 본다(QUEST_HOME 아래가 아니다)."""
+    cfg = mac["home"] / ".config" / "quest" / "config.toml"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text('[product]\npath = "~/x"\n\n[content]\nrepo = "a/b"\npath = "~/elsewhere"\n',
+                   encoding="utf-8")
+    (mac["home"] / "elsewhere" / ".git").mkdir(parents=True)
+    done = _run(mac, QUEST_HOME=str(mac["home"] / "unused"))
+    assert "✅ 콘텐츠(" in done.stdout and "elsewhere)" in done.stdout
+
+
+@pytest.mark.skipif(shutil.which("brew") is not None, reason="진짜 brew가 PATH에 있다")
+def test_brew_installed_but_not_on_path(mac: dict, tmp_path: Path) -> None:
+    """애플 실리콘에서 설치 직후: 다시 설치하라고 하지 않고 PATH 설정을 안내한다."""
+    (mac["stubs"] / "brew").unlink()
+    hidden = tmp_path / "opt" / "bin"
+    hidden.mkdir(parents=True)
+    # 자기 폴더를 pwd로 구한다(Windows의 bash에서 'C:/'는 PATH의 ':'과 겹친다)
+    body = r'''d=$(cd "$(dirname "$0")" && pwd)
+case "$1" in shellenv) echo "export PATH=\"$d:\$PATH\"";; *) echo Homebrew 4.5.0;; esac'''
+    (hidden / "brew").write_text(f"#!/usr/bin/env bash\n{body}\n", encoding="utf-8", newline="\n")
+    (hidden / "brew").chmod(0o755)
+    done = _run(mac, BREW_PATHS=(hidden / "brew").as_posix())
+    assert "❌ Homebrew는 있지만 PATH에 없음" in done.stdout and "shellenv" in done.stdout
+    assert "✅ Homebrew 4.5.0" in done.stdout  # 이 점검 안에서는 PATH에 더해 나머지를 이어 본다

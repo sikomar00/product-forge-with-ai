@@ -27,8 +27,11 @@ ENGINE_DIR = Path(quest.__file__).resolve().parent
 
 
 def engine_frames(text: str) -> list[str]:
-    """실패 내용에서 엔진 패키지 안의 '파일:줄'만 뽑는다(엔진 리포 기준 상대 경로)."""
-    prefix = re.escape(str(ENGINE_DIR).replace("\\", "/")) + r"/([^\s:]+\.py):(\d+)"
+    """실패 내용에서 엔진 패키지 안의 '파일:줄'만 뽑는다(엔진 리포 기준 상대 경로).
+
+    pytest 기본 형식('경로:줄')과 파이썬 기본 형식('File "경로", line 줄')을 모두 읽는다.
+    """
+    prefix = re.escape(str(ENGINE_DIR).replace("\\", "/")) + r'/([^\s:"]+\.py)(?::|", line )(\d+)'
     found = re.findall(prefix, text.replace("\\", "/"))
     return list(dict.fromkeys(f"quest/{path}:{line}" for path, line in found))
 
@@ -55,8 +58,11 @@ def _run_content_tests(root: Path) -> tuple[int, list[tuple[str, list[str]]]]:
         raise config.EnvError("받아 둔 콘텐츠에 tests 폴더가 없습니다. quest update로 받으세요.")
     with tempfile.TemporaryDirectory(prefix="quest-selftest-") as folder:
         report = Path(folder) / "junit.xml"
+        # --tb=native: pytest 기본 형식은 실행 폴더 기준 상대 경로('..\..')로 줄일 때가 있어
+        # 엔진 위치를 놓친다. 파이썬 기본 형식은 늘 절대 경로다.
         external.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
-                      f"--junitxml={report}", str(tests)], cwd=root, timeout=SELFTEST_TIMEOUT_SEC)
+                      "--tb=native", f"--junitxml={report}", str(tests)],
+                     cwd=root, timeout=SELFTEST_TIMEOUT_SEC)
         if not report.exists():
             raise config.EnvError("콘텐츠 테스트를 실행하지 못했습니다(pytest 결과 파일 없음).")
         return summarize(report)

@@ -48,7 +48,20 @@ check_tool() {  # check_tool <이름> <설치 명령> <버전 명령...>
   ok "$name $(version_of "$@")"
 }
 
+brew_on_path() {  # 애플 실리콘은 설치 직후 brew가 PATH에 없다. 있으면 이 점검 안에서만 PATH에 더한다
+  command -v brew >/dev/null 2>&1 && return
+  local b
+  for b in ${BREW_PATHS:-/opt/homebrew/bin/brew /usr/local/bin/brew}; do
+    if [ -x "$b" ]; then
+      no "Homebrew는 있지만 PATH에 없음($b)" "echo 'eval \"\$($b shellenv)\"' >> ~/.zprofile && eval \"\$($b shellenv)\""
+      eval "$("$b" shellenv)"
+      return
+    fi
+  done
+}
+
 check_tools() {
+  brew_on_path
   check_tool "Homebrew" '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' brew --version
   if [ -n "${NO_CLT:-}" ] && [ "$(command -v git)" = "/usr/bin/git" ]; then
     note "git은 Xcode Command Line Tools를 설치한 뒤에 점검한다"
@@ -109,9 +122,16 @@ check_s1() {
 
 check_game_files() {
   local cfg=${QUEST_CONFIG:-$HOME/.config/quest/config.toml}
-  local home=${QUEST_HOME:-$HOME/.local/share/quest}
-  if [ -f "$cfg" ]; then ok "게임 설정 파일($cfg)"; else note "게임 설정 파일은 아직 없다. 처음 quest를 실행하면 만든다"; fi
-  if [ -d "$home/content/.git" ]; then ok "콘텐츠($home/content)"; else note "콘텐츠는 아직 없다. 콘텐츠 리포를 만든 뒤 quest update"; fi
+  local content="$HOME/.local/share/quest/content"  # 엔진의 기본 설정과 같은 곳
+  if [ -f "$cfg" ]; then
+    ok "게임 설정 파일($cfg)"
+    local found  # 엔진은 설정의 [content] path에서만 콘텐츠를 읽는다
+    found=$(awk -F'"' '/^\[/ { s = ($1 == "[content]") } s && /^path[ \t]*=/ { print $2; exit }' "$cfg")
+    if [ -n "$found" ]; then content=${found/#\~/$HOME}; fi
+  else
+    note "게임 설정 파일은 아직 없다. 처음 quest를 실행하면 만든다"
+  fi
+  if [ -d "$content/.git" ]; then ok "콘텐츠($content)"; else note "콘텐츠는 아직 없다($content). 콘텐츠 리포를 만든 뒤 quest update"; fi
 }
 
 script_dir=$(cd "$(dirname "$0")" && pwd)

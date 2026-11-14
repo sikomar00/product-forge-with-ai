@@ -114,7 +114,23 @@ def restore(folder: Path) -> None:
         try:
             with tarfile.open(folder / entry["archive"]) as archive:
                 archive.extractall(staging, filter="tar")  # 절대 경로·.. 로 밖에 풀리지 않게
-            _remove(path)
-            (staging / path.name).rename(path)
+            _put(staging / path.name, path)
         finally:
             _remove(staging)
+
+
+def _put(new: Path, path: Path) -> None:
+    """new를 path 자리에 둔다. 폴더끼리면 폴더는 두고 안의 것만 바꾼다.
+
+    폴더 자체를 지우고 새로 만들면 그 안에 열어 둔 터미널·편집기가 지워진 폴더를 보게 된다.
+    """
+    if not (new.is_dir() and path.is_dir()) or new.is_symlink() or path.is_symlink():
+        _remove(path)
+        new.rename(path)
+        return
+    os.chmod(path, stat.S_IRWXU)  # 장애가 폴더 권한을 막았을 수 있다
+    for child in path.iterdir():
+        _remove(child)
+    for child in new.iterdir():
+        child.rename(path / child.name)
+    shutil.copymode(new, path)

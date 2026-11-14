@@ -3,8 +3,12 @@
 출력은 바뀐 장 번호와 새 미션 수뿐이다. 콘텐츠의 글(요청문·정답 등)은 보여 주지 않는다.
 """
 
+import os
 import re
+import shutil
+import stat
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 
 from quest import external
@@ -60,6 +64,28 @@ def _clone(repo: str, root: Path) -> None:
         external.run(["gh", "auth", "setup-git"])
     root.parent.mkdir(parents=True, exist_ok=True)
     _git(["clone", "--quiet", url, str(root)])
+    try:
+        if not (root / "content.toml").exists():
+            raise config.EnvError("콘텐츠 리포가 아직 비어 있습니다."
+                                  " 콘텐츠가 올라온 뒤 다시 quest update")
+        content.check_compat(content.read_manifest(root).get("requires_engine", ""),
+                             content.version("quest"))
+    except config.EnvError:
+        # 남겨 두면 빈 리포는 다음 update가 HEAD 없이 깨지고, 안 맞는 콘텐츠는 모든 명령을 멈춘다
+        shutil.rmtree(root, onexc=_retry_writable)
+        raise
+
+
+def _retry_writable(func: Callable[[str], object], path: str, exc: BaseException) -> None:
+    """Windows의 git은 .git/objects를 읽기 전용으로 둔다. 쓰기를 열고 다시 지운다.
+
+    지우기(unlink·rmdir)만 다시 한다. 맥의 rmtree는 open·scandir 실패로도 부르는데,
+    그건 그대로 알린다.
+    """
+    if func not in (os.unlink, os.rmdir):
+        raise exc
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 
 def _pull(root: Path) -> str:
@@ -103,7 +129,8 @@ def cmd_update(game: None, rest: list[str]) -> int:
     cfg = config.load_config()
     root, repo = content.content_root(cfg), cfg.get("content", {}).get("repo", "")
     if not repo or "<" in repo:
-        raise config.EnvError("설정 파일의 [content] repo에 콘텐츠 리포(소유자/이름)를 적으세요.")
+        raise config.EnvError(f"설정 파일({config.config_path()})의 [content] repo에"
+                              " 콘텐츠 리포(소유자/이름)를 적으세요.")
     if _incident_active():  # 장애 미션이 콘텐츠에서 바뀌면 abort가 되돌릴 시나리오를 잃는다
         raise config.EnvError("진행 중인 장애가 있어 콘텐츠를 갱신하지 않습니다. 먼저 복구하거나"
                               " quest incident abort")

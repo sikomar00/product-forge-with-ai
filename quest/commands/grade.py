@@ -162,6 +162,18 @@ def _save(game: Game, m: Mission, attempt: progress.Attempt) -> Saved:
     return saved
 
 
+def _cleanup_after_recovery(game: Game, m: Mission) -> None:
+    """복구 뒤에도 주입이 남긴 것(띄운 프로세스 등)을 치운다(2026-11-14 결정).
+
+    복구는 이미 기록했으므로 정리가 실패해도 되돌리지 않고 알리기만 한다.
+    """
+    try:
+        m.chaos.cleanup(make_ctx(game.cfg))
+    except Exception as exc:  # 시나리오 오류가 채점 결과 표시를 막지 않게
+        print(ui.paint(f"⚠️ 장애 시나리오 정리가 실패했습니다({type(exc).__name__})."
+                       " 랩·도구 상태를 확인하세요.", "yellow"))
+
+
 def _run_reviewbot(game: Game, m: Mission) -> None:
     """채점 직전에 리뷰봇을 한 번 돌린다. 리뷰봇이 실패해도 채점은 한다."""
     try:
@@ -193,6 +205,7 @@ def cmd_check(game: Game, rest: list[str]) -> int:
     if saved.recovered_ref:
         shutil.rmtree(snapshot_folder(saved.recovered_ref), ignore_errors=True)
         print(ui.paint("✅ 장애를 복구했습니다.", "green"))
+        _cleanup_after_recovery(game, m)
     if attempt.error:
         return ENV
     if not attempt.passed:

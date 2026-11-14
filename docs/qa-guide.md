@@ -19,6 +19,21 @@
 
 전체 시험: pytest 199/199 (Windows, CI ubuntu, CI macos), ruff 통과(순환 복잡도 10, 인자 3개 이하 포함).
 
+## 맥 이전 최종 점검 (2026-11-14, 브랜치 `engine/final-check`)
+
+맥에서 받는 그대로 GitHub에서 새로 클론해 돌렸다(Windows, `core.autocrlf=false`).
+
+| 항목 | 기대 | 실제 | 결과 |
+| --- | --- | --- | --- |
+| main 새 클론: `uv sync --locked`, ruff, pytest | 모두 통과 | pytest 1개 실패(selftest가 실행 폴더에 따라 엔진 위치를 놓침) → 고침 | Fail → 고침 |
+| 브랜치 새 클론: ruff, pytest, DDL 점검 | 모두 통과 | ruff 통과, 317 통과·1 건너뜀, DDL 67/67 | Pass |
+| CI ubuntu·macos | 초록 | ubuntu 318 통과, macos 317 통과·1 건너뜀(진짜 brew가 있어 'PATH에 없는 brew' 시험 생략) | Pass |
+| 줄바꿈·실행 권한 | CRLF 0개, `check-mac.sh` 100755 | 0개, 100755 | Pass |
+| 빈 홈에서 첫 사용자 흐름: `quest`, `help`, `doctor`, `update`, `status`, `status --json`, `selftest`, `map` | 오류는 종료 코드 3과 다음 할 일 안내 | 모두 안내대로(첫 실행 안내에 `[content] repo`가 빠져 있어 더함) | Pass |
+| 코드 리뷰 9건 + 재리뷰 1건 | 맞는 지적은 고치고 시험 | 9건 반영(복구 때 cleanup은 사용자 결정 후), 1건 미룸(맥 BSD 명령 차단). 최종 pytest 318 통과·1 건너뜀 | Pass |
+
+참고: 이 PC의 작업 사본에 CRLF 파일 20개가 있어 스키마 비교 시험이 이 PC에서만 실패했다. 리포 안은 모두 LF라 맥·CI와 상관없고, 작업 사본만 다시 받아 고쳤다.
+
 ## Claude QA
 
 ### 명령별 시험 (pytest)
