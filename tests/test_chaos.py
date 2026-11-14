@@ -75,6 +75,20 @@ def test_snapshot_restores_files_folders_and_git(tmp_path: Path) -> None:
     assert not (work / "new.txt").exists()  # 없던 파일은 지운다
 
 
+def test_restore_keeps_the_folder_itself(tmp_path: Path) -> None:
+    """리포 폴더 자체는 그대로 두고 안만 되돌린다(그 안에 연 터미널이 길을 잃지 않게)."""
+    work = tmp_path / "opsdesk"
+    work.mkdir()
+    (work / "app.py").write_text("print(1)\n", encoding="utf-8")
+    scenario = Chaos((".",), lambda ctx: None, lambda ctx: True, lambda ctx: None)
+    chaos.snapshot(_ctx(work), scenario, tmp_path / "snap")
+    before = work.stat().st_ino
+    (work / "app.py").unlink()
+    chaos.restore(tmp_path / "snap")
+    assert work.stat().st_ino == before
+    assert (work / "app.py").read_text(encoding="utf-8") == "print(1)\n"
+
+
 # ───────────── 명령: 주입 → 상태 → 중단·복구 ─────────────
 
 

@@ -57,8 +57,11 @@ def test_engine_frames_ignore_other_paths() -> None:
     engine = str(selftest.ENGINE_DIR)
     text = (f"{engine}/core/state.py:40: in connect\n"
             "/Users/me/.local/share/quest/content/tests/test_x.py:3: AssertionError\n"
-            f"{engine}\\core\\state.py:40: in connect")
-    assert selftest.engine_frames(text) == ["quest/core/state.py:40"]
+            f"{engine}\\core\\state.py:40: in connect\n"
+            f'  File "{engine}/core/spoiler.py", line 19, in reveal\n'
+            '  File "/Users/me/.local/share/quest/content/tests/test_x.py", line 3, in test_x\n'
+            "..\\..\\elsewhere\\quest\\core\\ui.py:5: ValueError")
+    assert selftest.engine_frames(text) == ["quest/core/state.py:40", "quest/core/spoiler.py:19"]
 
 
 def test_selftest_without_tests_folder(game: Path, quest: Quest) -> None:

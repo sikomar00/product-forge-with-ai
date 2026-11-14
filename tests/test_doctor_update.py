@@ -138,6 +138,29 @@ def test_update_refuses_content_for_newer_engine(
     assert len(_events(game)) == 1
 
 
+def test_first_update_refuses_content_for_newer_engine(
+    game: Path, quest: Quest, origin: Path, setup: Path
+) -> None:
+    manifest = origin / "content.toml"
+    manifest.write_text(manifest.read_text(encoding="utf-8").replace(
+        '">=0.1,<0.2"', '">=0.9"'), encoding="utf-8")
+    _git(origin, "commit", "--quiet", "-am", "엔진 0.9 필요")
+    code, out = quest("update")
+    assert code == 3 and "엔진을 갱신하세요" in out
+    assert not setup.exists()  # 받다 만 것을 남기지 않아, 엔진을 갱신하면 다시 받을 수 있다
+
+
+def test_first_update_of_empty_repo(game: Path, quest: Quest, setup: Path, tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    _git(tmp_path, "init", "--quiet", "--bare", str(empty))
+    cfg = game.parent / "config.toml"
+    cfg.write_text(cfg.read_text(encoding="utf-8").replace(
+        (tmp_path / "origin").as_posix(), empty.as_posix()), encoding="utf-8")
+    code, out = quest("update")
+    assert code == 3 and "아직 비어 있습니다" in out
+    assert not setup.exists()
+
+
 def test_update_reports_unreachable_repo(game: Path, quest: Quest, setup: Path) -> None:
     cfg = game.parent / "config.toml"
     text = cfg.read_text(encoding="utf-8")
