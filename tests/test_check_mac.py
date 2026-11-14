@@ -106,6 +106,26 @@ def test_missing_engine_repo_and_wrong_branch(mac: dict, tmp_path: Path) -> None
     assert "❌ 엔진 리포 없음" in done.stdout and "git clone" in done.stdout
 
 
+def test_downloaded_copy_looks_at_readme_location(mac: dict) -> None:
+    """README 1단계처럼 홈에 받아 인자 없이 돌리면 ~/code/product-forge-with-ai를 본다."""
+    copy = mac["home"] / "check-mac.sh"
+    shutil.copy(SCRIPT, copy)
+    git_dir = str(Path(shutil.which("git")).parent)
+    env = {**os.environ, "HOME": str(mac["home"]),
+           "PATH": os.pathsep.join([str(mac["stubs"]), git_dir, os.environ.get("PATH", "")])}
+    env.pop("QUEST_S1_REPO", None)
+
+    def run() -> str:
+        return subprocess.run([BASH, copy.as_posix()], env=env, capture_output=True, text=True,
+                              encoding="utf-8", check=False).stdout
+
+    out = run()
+    assert "❌ 엔진 리포 없음" in out and "/code/product-forge-with-ai" in out
+    (mac["home"] / "code").mkdir()
+    shutil.move(mac["repo"], mac["home"] / "code" / "product-forge-with-ai")
+    assert "✅ 엔진 리포(" in run()
+
+
 def test_check_changes_nothing(mac: dict) -> None:
     before = sorted(p.relative_to(mac["repo"]) for p in mac["repo"].rglob("*"))
     _run(mac)

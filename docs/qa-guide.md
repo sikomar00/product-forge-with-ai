@@ -32,6 +32,14 @@
 | 빈 홈에서 첫 사용자 흐름: `quest`, `help`, `doctor`, `update`, `status`, `status --json`, `selftest`, `map` | 오류는 종료 코드 3과 다음 할 일 안내 | 모두 안내대로(첫 실행 안내에 `[content] repo`가 빠져 있어 더함) | Pass |
 | 코드 리뷰 9건 + 재리뷰 1건 | 맞는 지적은 고치고 시험 | 9건 반영(복구 때 cleanup은 사용자 결정 후), 1건 미룸(맥 BSD 명령 차단). 최종 pytest 318 통과·1 건너뜀 | Pass |
 
+재점검(2026-11-14, 콘텐츠 0장 머지 뒤, 브랜치 `engine/mac-handoff-check`):
+
+| 항목 | 기대 | 실제 | 결과 |
+| --- | --- | --- | --- |
+| README 1단계처럼 `~/check-mac.sh`를 인자 없이 실행 | 엔진 리포를 README 위치(`~/code/product-forge-with-ai`)에서 찾는다 | 스크립트 위 폴더(`/Users`)를 보고, 엔진을 받은 뒤에도 "없음" → 고침(새 시험은 고치기 전 실패 확인) | Fail → 고침 |
+| ruff, pytest | 모두 통과 | ruff 통과, 319 통과·1 건너뜀 | Pass |
+| 콘텐츠 main CI(엔진 `v0.1.0` 고정) | 미션 테스트·플레이스루 통과 | 성공(ubuntu 러너만, 맥 BSD 명령은 시험하지 않음) | Pass, 맥은 미확인 |
+
 참고: 이 PC의 작업 사본에 CRLF 파일 20개가 있어 스키마 비교 시험이 이 PC에서만 실패했다. 리포 안은 모두 LF라 맥·CI와 상관없고, 작업 사본만 다시 받아 고쳤다.
 
 ## Claude QA
