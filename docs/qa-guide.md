@@ -30,7 +30,7 @@
 | CI ubuntu·macos | 초록 | ubuntu 318 통과, macos 317 통과·1 건너뜀(진짜 brew가 있어 'PATH에 없는 brew' 시험 생략) | Pass |
 | 줄바꿈·실행 권한 | CRLF 0개, `check-mac.sh` 100755 | 0개, 100755 | Pass |
 | 빈 홈에서 첫 사용자 흐름: `quest`, `help`, `doctor`, `update`, `status`, `status --json`, `selftest`, `map` | 오류는 종료 코드 3과 다음 할 일 안내 | 모두 안내대로(첫 실행 안내에 `[content] repo`가 빠져 있어 더함) | Pass |
-| 코드 리뷰 9건 | 맞는 지적은 고치고 시험 | 7건 반영(시험 7개 추가), 1건 결정 필요(복구 때 cleanup), 1건 미룸(맥 BSD 명령 차단) | — |
+| 코드 리뷰 9건 + 재리뷰 1건 | 맞는 지적은 고치고 시험 | 9건 반영(복구 때 cleanup은 사용자 결정 후), 1건 미룸(맥 BSD 명령 차단). 최종 pytest 318 통과·1 건너뜀 | Pass |
 
 참고: 이 PC의 작업 사본에 CRLF 파일 20개가 있어 스키마 비교 시험이 이 PC에서만 실패했다. 리포 안은 모두 LF라 맥·CI와 상관없고, 작업 사본만 다시 받아 고쳤다.
 
