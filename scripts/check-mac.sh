@@ -5,6 +5,7 @@
 # 쓰는 법:
 #   bash scripts/check-mac.sh                 # 엔진 리포 안에서
 #   bash check-mac.sh ~/code/product-forge-with-ai   # 엔진 리포 위치를 직접 줄 때
+#   bash check-mac.sh                         # 리포 밖에서: README의 위치(~/code/product-forge-with-ai)를 본다
 #
 # 결과: 빠진 것이 없으면 종료 코드 0, 있으면 1.
 set -u
@@ -90,7 +91,7 @@ check_engine_repo() {  # check_engine_repo <위치>
     return
   fi
   if [ ! -d "$repo/.git" ] || [ ! -f "$repo/pyproject.toml" ]; then
-    no "엔진 리포 없음($repo)" "git clone https://github.com/sikomar00/product-forge-with-ai.git"
+    no "엔진 리포 없음($repo)" "git clone https://github.com/sikomar00/product-forge-with-ai.git $repo"
     return
   fi
   ok "엔진 리포($repo)"
@@ -136,6 +137,8 @@ check_game_files() {
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
 repo=${1:-$(cd "$script_dir/.." && pwd)}
+# 받아서 따로 실행하면(README 1단계) 스크립트 위 폴더는 리포가 아니다
+if [ -z "${1:-}" ] && [ ! -f "$repo/pyproject.toml" ]; then repo=$HOME/code/product-forge-with-ai; fi
 
 echo "맥 준비 점검(읽기만 한다)"
 echo
