@@ -77,7 +77,13 @@ def _clone(repo: str, root: Path) -> None:
 
 
 def _retry_writable(func: Callable[[str], object], path: str, exc: BaseException) -> None:
-    """Windows의 git은 .git/objects를 읽기 전용으로 둔다. 쓰기를 열고 다시 지운다."""
+    """Windows의 git은 .git/objects를 읽기 전용으로 둔다. 쓰기를 열고 다시 지운다.
+
+    지우기(unlink·rmdir)만 다시 한다. 맥의 rmtree는 open·scandir 실패로도 부르는데,
+    그건 그대로 알린다.
+    """
+    if func not in (os.unlink, os.rmdir):
+        raise exc
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
