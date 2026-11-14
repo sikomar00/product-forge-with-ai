@@ -12,7 +12,7 @@
 ### 3. 영향 범위
 - 엔진 리포 `product-forge-with-ai`의 엔진 구역: `quest/`, `tests/`, `pyproject.toml`, `uv.lock`, `.github/workflows/`.
 - 참조 ID: PRD M0-01~M0-19, IA-1~IA-11·IA-15~IA-17, UJ-2·UJ-3·UJ-4·UJ-6·UJ-7·UJ-8, ERD v1.0의 표 12개(`docs/ddl/v1.0.sql`), Spec v1.0 "M0 · 엔진".
-- 바꾸지 않는 것: S1 리포(읽기만), `tech-radar-agent` 리포, 콘텐츠 리포(아직 없음).
+- 바꾸지 않는 것: S1 리포(읽기만), `tech-radar-agent` 리포, 콘텐츠 리포(`product-forge-content`, 비공개, 엔진 세션에서는 읽지 않는다).
 
 ### 4. 제약
 - 엔진은 사용자가 로컬 Claude Code로 바이브코딩한다. Windows에서 할 수 있는 만큼 먼저 하고 맥에서 클론받아 마무리한다(Plan 결정 2, 2026-11-13). AI는 Plan 범위 안에서 돕고, 결정과 리뷰는 사용자가 한다.
@@ -21,11 +21,12 @@
 - 엔진 작업 중 AI는 콘텐츠 위치를 읽지 않는다(CLAUDE.md 6절).
 
 ### 5. 열린 질문과 진행
+- 콘텐츠 시작(2026-11-14): 사용자가 비공개 리포 `product-forge-content`를 만들고, 엔진 main `3161f6c`에 태그 `v0.1.0`을 붙였다(콘텐츠 CI가 이 태그로 고정). claude.ai/code의 리포 선택 목록이 비어 있어(GitHub 앱은 전체 리포 허용 상태, 원인 미확인) 임시 클론 폴더에서 `claude --cloud`로 콘텐츠 세션을 열었다. 사용자 승인으로 PR #1(T1-6 골격)과 PR #2(T1-7 0장 코어 0-1~0-9)를 머지했고 main CI는 성공이다. 콘텐츠 세션 보고에 따르면 GitHub 러너에서 systemd를 쓸 수 있다(엔진 세션은 직접 확인하지 않았다). 엔진을 고치면 태그를 옮기지 않고 `v0.1.1`처럼 새로 붙인다.
 - 맥 이전 최종 점검(2026-11-14, 브랜치 `engine/final-check`): main을 새로 클론해 돌리다 찾은 selftest 버그(실행 폴더에 따라 엔진 위치를 놓침)를 고치고, 코드 리뷰 9건 중 7건을 반영했다(장애 되돌리기가 리포 폴더를 지우지 않음, 버전 확인 지름길로 `rm version` 같은 명령이 통과하던 것, 첫 `quest update`의 호환·빈 리포 확인, git·gh 로그인 질문에 멈추지 않음, 맥에서 Homebrew가 PATH에 없을 때, check-mac의 콘텐츠 위치, 맥 BSD 명령 안내). 결과는 `docs/qa-guide.md` "맥 이전 최종 점검".
 - 결정(2026-11-14 사용자, 추천안): 장애를 복구로 끝낼 때도 시나리오 cleanup을 부르고, 실패하면 경고만 한다. 콘텐츠 cleanup은 여러 번 불러도 안전하게 만든다(Spec 장애 주입).
 - 미룬 것: 맥 호스트에서 GNU 전용 셸 명령을 막는 장치(지금은 docstring 안내만, 콘텐츠 작성 때 맥에서 시험한다).
 - 지금 방침(2026-11-13 사용자): Windows에서 할 수 있는 것을 모두 하고 맥으로 넘어간다. M0 게이트는 2026-11-13 승인됐다(숫자·QA는 `docs/qa-guide.md`, 사용자 QA는 맥에서). main 머지 PR을 만들었다.
-- 다음 작업(맥): T1-4 OrbStack 랩(미확인 3건 + ssh 체크의 `orb -m` 형식), 랩 VM 대상 실제 주입, 사용자 QA U1~U9(`docs/qa-guide.md`). 그다음 콘텐츠(T1-6~, 클라우드 세션, 별도 리포). `core/progress.py`는 장애 함수를 `core/incidents.py`로 나눠 298줄이다.
+- 다음 작업(맥): 설치 후 `quest update`로 0장을 받아 W1 시작, T1-4 OrbStack 랩(미확인 3건 + ssh 체크의 `orb -m` 형식), 랩 VM 대상 실제 주입, 사용자 QA U1~U9(`docs/qa-guide.md`). 콘텐츠는 T1-8(1장부터 학습자보다 한 장 앞서서, 클라우드 세션)로 이어간다. `core/progress.py`는 장애 함수를 `core/incidents.py`로 나눠 298줄이다.
 - 결정 기록(2026-11-13): ADR-0010 졸업 기준은 통과한 미션으로(면제 불인정), ADR-0011 리뷰봇은 quest check 직전에 한 번. GLOSSARY에 면제·졸업 기준 영역·리뷰봇을 더하고 랩 항목의 '리뷰봇 워크플로'를 고쳤다. Windows 먼저 진행(Plan v1.1)과 장애 스냅샷 방식(Spec)은 되돌리기 쉬워 ADR로 만들지 않았다.
 - Windows에서 할 엔진 작업은 끝났다(2026-11-13): T1-5 리뷰봇(quest check 직전에 학습자 본인 PR에 한 번), M1 코드 리뷰 15건·보안 검토 1건 반영. pytest 294/294(Windows·CI ubuntu·macos).
 - T1-1~T1-3 완료(2026-11-13, Windows): 체크 프리미티브 6종(읽기 전용 시험), `quest selftest`·`quest report`, 장애 주입 안전장치(허용 대상·스냅샷·abort·복구·MTTR·근본 원인 퀴즈).
@@ -39,7 +40,7 @@
 - T0-3 완료(2026-11-13): `core/mission.py`(미션 스키마), `core/content.py`(불러오기·검증·호환), `tests/fixtures/fake_content/`(8가지 유형, 미션 9개, 지연 확인 퀴즈 10문항). 스키마 결정 3가지는 Spec "미션 스키마"에 적었다.
 - T0-2 완료(2026-11-13): `core/config.py`·`core/state.py`·`core/schema/v1_0.sql`. 엔진이 만든 DB에서 DDL 점검 67/67, 외래 키를 끄면 3개가 실패해 점검이 동작함을 확인. meta의 `engine_version` 갱신은 명령이 생기는 T0-4에서 한다. 원격 브랜치 `claude/harness-setup` 삭제는 사용자가 GitHub에서 한다.
 - T0-1 완료(2026-11-13, 브랜치 `engine/windows-setup`): CI가 ubuntu·macos에서 초록(ruff, pytest 1개, DDL 67/67). Python은 uv 관리 빌드 3.14.10으로 고정해 세 환경 모두 SQLite 3.53.1이다. 빌드 백엔드로 uv_build 0.13.6을 썼다(uv와 같은 버전).
-- 확인할 것: 맥 로컬에서 SQLite 3.53.1인지 확인(CI macos 러너에서는 3.53.1), OrbStack 미확인 3건(T1-4), GitHub 러너의 systemd(T1-6).
+- 확인할 것: 맥 로컬에서 SQLite 3.53.1인지 확인(CI macos 러너에서는 3.53.1), OrbStack 미확인 3건(T1-4). (GitHub 러너의 systemd는 T1-6에서 사용 가능으로 확인됨, 2026-11-14)
 - 실측 기록(T0-4): AI 구현 시간 약 5분(2026-11-13 12:09:58~12:14:46 UTC, 문서 읽기·코드·시험·직접 실행 포함). Plan 추정 5~8h는 사용자가 함께 짜는 시간이었다. 사용자 리뷰 시간은 재지 못했다. 남은 엔진 작업의 병목은 AI 구현이 아니라 사용자 리뷰·결정, S1 리포 준비(T0-8), 0장 콘텐츠(T1-7, 클라우드 세션)다. W1 예상일은 사용자 리뷰 시간을 한 번 재고 다시 계산한다.
 
 ## 완료한 작업

@@ -36,7 +36,7 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 ## 사용자 작업 (필요한 시점에 다시 알려 드린다)
 1. (T0-0) 문서 브랜치 `claude/harness-setup`을 main에 머지하는 PR을 승인한다. 지난 브랜치 `claude/design-v0.3` 삭제도 GitHub에서 직접 한다(세션에서는 삭제가 막혀 있다).
 2. (T0-1 전, 완료 2026-11-13) Windows에 uv·Python 3.14를 깔았다. (맥으로 옮길 때) 맥에서 먼저 `scripts/check-mac.sh`로 이미 설치된 것과 빠진 것을 본다(읽기만 하고 아무것도 설치하지 않는다). 리포를 받기 전이면 스크립트만 받아 읽어 본 뒤 실행한다: `curl -fsSL https://raw.githubusercontent.com/sikomar00/product-forge-with-ai/main/scripts/check-mac.sh -o check-mac.sh && bash check-mac.sh`. 마지막에 나오는 '필요한 것'만 차례로 하고, 엔진을 받은 뒤에는 `uv run quest doctor`로 다시 본다. 그다음 맥에서 엔진 리포를 `git clone`하고(main, PR #3으로 머지됨) `uv sync`를 하고, 맥 로컬 Claude Code를 엔진 리포에서 연다(CLAUDE.md 하네스가 자동으로 적용된다). 명령 순서(별칭 포함)는 README "맥에서 시작하기"에 있다.
-3. (T1-6 전) GitHub에서 비공개 리포 `product-forge-content`를 만들고, 콘텐츠 작업용 클라우드 세션에 연결한다.
+3. (T1-6 전, 완료 2026-11-14) GitHub에서 비공개 리포 `product-forge-content`를 만들고, 콘텐츠 작업용 클라우드 세션에 연결한다. 리포 선택 목록에 안 보이면 리포를 임시 폴더에 받아 그 안에서 `claude --cloud "<지시>"`로 세션을 열고, 세션이 생기면 폴더를 지운다(나중에 정답을 받지 않게).
 4. (T1-9 전, 2장 출시 점검) 자동화 전용 GitHub 머신 계정 1개를 만들고, 토큰을 `product-forge-content`의 Actions 비밀값에 직접 넣는다. 채팅에는 붙이지 않는다.
 5. (UJ-1) 맥에서 `gh auth login`을 한다. `quest update`가 처음에 `gh auth setup-git`을 안내한다.
 
@@ -60,8 +60,8 @@ Spec v1.0 "패키지 구조"를 그대로 따른다. 의존은 안쪽으로만 �
 - **T1-3 장애 주입** 📐6~10h: `chaos/`, 주입 허용 대상, 스냅샷·abort, IA-13. 1-I1 전에 끝낸다(M1-05).
 - **T1-4 OrbStack 랩** 📐4~8h: 먼저 미확인 3건을 맥에서 확인한다(머신 안 실습용 sshd, 머신 스냅샷, cloud-init 사용자 생성). 그다음 `labs/linux-vm.yml`과 머신 생성(M1-06). 안 되는 것이 나오면 Lima로 바꿀지 그때 묻는다.
 - **T1-5 리뷰봇** 📐3~5h: 게임이 로컬에서 `gh api`로 PR 리뷰 코멘트를 단다. 2-4 전에 끝낸다(M1-07).
-- **T1-6 콘텐츠 리포 골격**(AI): `content.toml`, `keys.lock`, CI(엔진 태그 고정), 기록 재생 장치, 플레이스루 러너. GitHub 러너에서 systemd를 쓸 수 있는지 먼저 확인한다(M1-08, M1-09).
-- **T1-7 0장 콘텐츠**(AI): 코어 9개, 미션 테스트, 플레이스루. → **W1 시작 조건**.
+- **T1-6 콘텐츠 리포 골격**(AI): `content.toml`, `keys.lock`, CI(엔진 태그 고정), 기록 재생 장치, 플레이스루 러너. GitHub 러너에서 systemd를 쓸 수 있는지 먼저 확인한다(M1-08, M1-09). (완료 2026-11-14, PR #1: 엔진 태그 `v0.1.0` 고정, systemd 사용 가능)
+- **T1-7 0장 콘텐츠**(AI): 코어 9개, 미션 테스트, 플레이스루. → **W1 시작 조건**. (완료 2026-11-14, PR #2: 0-1~0-9)
 - **T1-8 1~4장 콘텐츠**(AI): 학습자보다 한 장 앞서서 한 장씩. 장마다 미션 테스트, 플레이스루(기록 재생), 보고는 개수만(M1-08, M1-10).
 - **T1-9 출시 점검**(AI): GitHub가 필요한 장(2장)은 내보내기 전에 머신 계정으로 실제 GitHub 플레이스루를 돌리고 기록을 갱신한다(M1-09).
 - **T1-10 M1 게이트**(AI + 사용자): 4장까지 끝나면 숫자 보고와 승인.
